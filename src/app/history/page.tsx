@@ -6,6 +6,32 @@ import type { HistoryEntry } from '@/lib/types';
 import { getHistory, deleteHistoryEntry, clearHistory } from '@/lib/storage';
 import { linkBtnStyle, dangerBtnStyle, sectionStyle, sectionTitleStyle } from '@/lib/styles';
 
+const subHeadStyle: React.CSSProperties = {
+    fontSize: 13,
+    fontWeight: 700,
+    color: 'var(--text-secondary)',
+    marginBottom: 6,
+    marginTop: 12,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+};
+
+const voiceStyle: React.CSSProperties = {
+    fontSize: 13,
+    color: 'var(--text-secondary)',
+    display: 'flex',
+    gap: 6,
+    padding: '4px 0',
+    lineHeight: 1.6,
+};
+
+const cardStyle: React.CSSProperties = {
+    padding: '12px 16px',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid var(--border-subtle)',
+};
 export default function HistoryPage() {
     const [entries, setEntries] = useState<HistoryEntry[]>([]);
     const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -147,7 +173,7 @@ export default function HistoryPage() {
                                 </button>
                             </button>
 
-                            {/* Expanded detail */}
+                            {/* Expanded detail — FULL RESULTS */}
                             {expanded && (
                                 <div style={{ padding: '0 20px 20px', borderTop: '1px solid var(--border-subtle)' }}>
                                     {/* Input info */}
@@ -160,48 +186,146 @@ export default function HistoryPage() {
                                         </div>
                                     </div>
 
-                                    {/* Phase 1 */}
+                                    {/* Phase 1: Deep Listening */}
                                     <div style={sectionStyle}>
-                                        <h4 style={sectionTitleStyle}>🎧 Deep Listening</h4>
-                                        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                                            <p><strong>市場の再定義:</strong> {entry.result.phase1.marketRedefinition}</p>
+                                        <h4 style={sectionTitleStyle}>🎧 Phase 1: Deep Listening</h4>
+
+                                        <p style={subHeadStyle}>
+                                            <span style={{ color: 'var(--spectrum-cyan)' }}>●</span> Positive / Hack
+                                        </p>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16 }}>
+                                            {entry.result.phase1.positiveHacks.map((v, i) => (
+                                                <div key={i} style={voiceStyle}>
+                                                    <span style={{ color: 'var(--spectrum-cyan)', flexShrink: 0 }}>❝</span>
+                                                    <span>{v}</span>
+                                                </div>
+                                            ))}
                                         </div>
+
+                                        <p style={subHeadStyle}>
+                                            <span style={{ color: 'var(--spectrum-red)' }}>●</span> Negative / Pain
+                                        </p>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16 }}>
+                                            {entry.result.phase1.negativePains.map((v, i) => (
+                                                <div key={i} style={voiceStyle}>
+                                                    <span style={{ color: 'var(--spectrum-red)', flexShrink: 0 }}>❝</span>
+                                                    <span>{v}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <p style={subHeadStyle}>▸ 市場の再定義</p>
+                                        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.8, margin: 0 }}>
+                                            {entry.result.phase1.marketRedefinition}
+                                        </p>
+
+                                        {/* Grounding Sources */}
+                                        {entry.result.groundingSources && entry.result.groundingSources.length > 0 && (
+                                            <div style={{ marginTop: 16 }}>
+                                                <p style={{ ...subHeadStyle, color: 'var(--text-muted)' }}>
+                                                    🔗 Google検索ソース（{entry.result.groundingSources.length}件）
+                                                </p>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                    {entry.result.groundingSources.map((src, i) => (
+                                                        <a
+                                                            key={i}
+                                                            href={src.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            style={{
+                                                                fontSize: 12,
+                                                                color: 'var(--spectrum-cyan)',
+                                                                textDecoration: 'none',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                            }}
+                                                        >
+                                                            ↗ {src.title}
+                                                        </a>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
-                                    {/* Phase 2 */}
+                                    {/* Phase 2: Social Language */}
                                     <div style={sectionStyle}>
-                                        <h4 style={sectionTitleStyle}>💬 社会言語</h4>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                        <h4 style={sectionTitleStyle}>💬 Phase 2: 社会言語</h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                             {entry.result.phase2.map((sl, i) => (
-                                                <span key={i} style={{
-                                                    padding: '4px 10px',
-                                                    borderRadius: 8,
-                                                    fontSize: 13,
-                                                    fontWeight: 700,
-                                                    background: 'rgba(0,255,200,0.08)',
-                                                    border: '1px solid rgba(0,255,200,0.2)',
-                                                    color: 'var(--spectrum-cyan)',
-                                                }}>
-                                                    {sl.keyword}
-                                                </span>
+                                                <div key={i} style={cardStyle}>
+                                                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--spectrum-cyan)', marginBottom: 6 }}>
+                                                        {i + 1}. {sl.keyword}
+                                                    </div>
+                                                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                                                        <div><strong>ストーリー:</strong> {sl.story}</div>
+                                                        <div style={{ marginTop: 4 }}><strong>ファクト:</strong> {sl.fact}</div>
+                                                    </div>
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
 
-                                    {/* Phase 4: headline */}
+                                    {/* Phase 3: Evidence Design */}
                                     <div style={sectionStyle}>
-                                        <h4 style={sectionTitleStyle}>📰 ニュース見出し</h4>
-                                        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                                            {entry.result.phase4.newsHeadline}
-                                        </p>
+                                        <h4 style={sectionTitleStyle}>📊 Phase 3: 調査設計</h4>
+                                        <p style={subHeadStyle}>定量設問</p>
+                                        <ol style={{ margin: '0 0 12px', paddingLeft: 20, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                                            {entry.result.phase3.quantitative.map((q, i) => (
+                                                <li key={i}>{q}</li>
+                                            ))}
+                                        </ol>
+                                        <p style={subHeadStyle}>定性設問</p>
+                                        <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                                            {entry.result.phase3.qualitative.map((q, i) => (
+                                                <li key={i}>{q}</li>
+                                            ))}
+                                        </ol>
                                     </div>
 
-                                    {/* Positioning */}
+                                    {/* Phase 4: Output */}
                                     <div style={sectionStyle}>
-                                        <h4 style={sectionTitleStyle}>🎯 ポジショニング提案</h4>
-                                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                                        <h4 style={sectionTitleStyle}>📄 Phase 4: アウトプット</h4>
+
+                                        <p style={subHeadStyle}>📰 ニュース見出し</p>
+                                        <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px' }}>
+                                            {entry.result.phase4.newsHeadline}
+                                        </p>
+
+                                        <p style={subHeadStyle}>🎯 ポジショニング提案</p>
+                                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8, margin: '0 0 16px' }}>
                                             {entry.result.phase4.positioning}
                                         </p>
+
+                                        <p style={subHeadStyle}>📋 調査レポートサマリ</p>
+                                        <div style={{
+                                            fontSize: 13,
+                                            color: 'var(--text-secondary)',
+                                            lineHeight: 1.8,
+                                            whiteSpace: 'pre-wrap',
+                                            padding: 16,
+                                            borderRadius: 8,
+                                            background: 'rgba(255,255,255,0.02)',
+                                            border: '1px solid var(--border-subtle)',
+                                            marginBottom: 16,
+                                        }}>
+                                            {entry.result.phase4.reportSummary}
+                                        </div>
+
+                                        <p style={subHeadStyle}>📰 プレスリリース記事</p>
+                                        <div style={{
+                                            fontSize: 13,
+                                            color: 'var(--text-secondary)',
+                                            lineHeight: 1.8,
+                                            whiteSpace: 'pre-wrap',
+                                            padding: 16,
+                                            borderRadius: 8,
+                                            background: 'rgba(255,255,255,0.02)',
+                                            border: '1px solid var(--border-subtle)',
+                                        }}>
+                                            {entry.result.phase4.pressRelease}
+                                        </div>
                                     </div>
                                 </div>
                             )}
