@@ -171,6 +171,7 @@ export default function ResultsPage() {
     const [partialPhase2, setPartialPhase2] = useState<SocialLanguage[] | null>(null);
     const [partialPhase3, setPartialPhase3] = useState<SurveyDesign | null>(null);
     const [partialGroundingSources, setPartialGroundingSources] = useState<GroundingSource[]>([]);
+    const [progressTab, setProgressTab] = useState<'listening' | 'language' | 'survey'>('listening');
 
     const runAnalysis = useCallback(async (inputData: PrismInput) => {
         setPhase('phase1');
@@ -223,10 +224,13 @@ export default function ResultsPage() {
                             if (event.phase === 1) {
                                 setPartialPhase1(event.data as DeepListeningResult);
                                 setPartialGroundingSources(event.groundingSources || []);
+                                setProgressTab('listening');
                             } else if (event.phase === 2) {
                                 setPartialPhase2(event.data as SocialLanguage[]);
+                                setProgressTab('language');
                             } else if (event.phase === 3) {
                                 setPartialPhase3(event.data as SurveyDesign);
+                                setProgressTab('survey');
                             }
                         } else if (event.type === 'result') {
                             const data: PrismResult = event.data;
@@ -391,95 +395,108 @@ export default function ResultsPage() {
                         </p>
                     </div>
 
-                    {/* Progressive Phase Results — show completed phases during analysis */}
+                    {/* Progressive Phase Results — tab-based view */}
                     {(partialPhase1 || partialPhase2 || partialPhase3) && (
                         <div style={{ marginTop: 32 }}>
-                            <h3 style={{
-                                fontSize: 14,
-                                fontWeight: 700,
-                                color: 'var(--text-muted)',
-                                marginBottom: 12,
-                                textAlign: 'center',
-                            }}>
-                                完了したフェーズの結果
-                            </h3>
+                            {/* Tab bar */}
+                            <div className="tab-group" style={{ marginBottom: 16 }}>
+                                <button
+                                    className={`tab-item ${progressTab === 'listening' ? 'active' : ''}`}
+                                    onClick={() => setProgressTab('listening')}
+                                    disabled={!partialPhase1}
+                                    style={!partialPhase1 ? { opacity: 0.3, pointerEvents: 'none' } : {}}
+                                >
+                                    {partialPhase1 ? '✓ ' : ''}🎧 Deep Listening
+                                </button>
+                                <button
+                                    className={`tab-item ${progressTab === 'language' ? 'active' : ''}`}
+                                    onClick={() => setProgressTab('language')}
+                                    disabled={!partialPhase2}
+                                    style={!partialPhase2 ? { opacity: 0.3, pointerEvents: 'none' } : {}}
+                                >
+                                    {partialPhase2 ? '✓ ' : ''}◈ 社会言語
+                                </button>
+                                <button
+                                    className={`tab-item ${progressTab === 'survey' ? 'active' : ''}`}
+                                    onClick={() => setProgressTab('survey')}
+                                    disabled={!partialPhase3}
+                                    style={!partialPhase3 ? { opacity: 0.3, pointerEvents: 'none' } : {}}
+                                >
+                                    {partialPhase3 ? '✓ ' : ''}📊 調査設計
+                                </button>
+                            </div>
 
-                            {/* Phase 1 partial */}
-                            {partialPhase1 && (
-                                <div className="glass-card" style={{ padding: 28, marginBottom: 12 }}>
-                                    <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <span style={{ color: 'var(--spectrum-green)' }}>✓</span> 🎧 Phase 1: Deep Listening
-                                    </h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-                                        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--spectrum-cyan)', marginBottom: 4 }}>Positive / Hack</p>
-                                        {partialPhase1.positiveHacks.map((v, i) => {
-                                            const item = toVoiceItem(v);
-                                            return (
-                                                <div key={i} className="voice-item positive" style={{ padding: '10px 14px', fontSize: 13 }}>
-                                                    <span style={{ color: 'var(--spectrum-cyan)', flexShrink: 0 }}>❝</span>
-                                                    <div>
-                                                        <span>{item.text}</span>
-                                                        {item.sourceUrl && (
-                                                            <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer"
-                                                                style={{ display: 'block', fontSize: 11, color: 'var(--spectrum-cyan)', textDecoration: 'none', marginTop: 4, opacity: 0.8 }}>
-                                                                ↗ {item.sourceTitle || item.sourceUrl}
-                                                            </a>
-                                                        )}
+                            {/* Tab content */}
+                            <div className="glass-card" style={{ padding: 28 }}>
+                                {/* Phase 1 tab */}
+                                {progressTab === 'listening' && partialPhase1 && (
+                                    <div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+                                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--spectrum-cyan)', marginBottom: 4 }}>Positive / Hack</p>
+                                            {partialPhase1.positiveHacks.map((v, i) => {
+                                                const item = toVoiceItem(v);
+                                                return (
+                                                    <div key={i} className="voice-item positive" style={{ padding: '10px 14px', fontSize: 13 }}>
+                                                        <span style={{ color: 'var(--spectrum-cyan)', flexShrink: 0 }}>❝</span>
+                                                        <div>
+                                                            <span>{item.text}</span>
+                                                            {item.sourceUrl && (
+                                                                <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer"
+                                                                    style={{ display: 'block', fontSize: 11, color: 'var(--spectrum-cyan)', textDecoration: 'none', marginTop: 4, opacity: 0.8 }}>
+                                                                    ↗ {item.sourceTitle || item.sourceUrl}
+                                                                </a>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-                                        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--spectrum-red)', marginBottom: 4 }}>Negative / Pain</p>
-                                        {partialPhase1.negativePains.map((v, i) => {
-                                            const item = toVoiceItem(v);
-                                            return (
-                                                <div key={i} className="voice-item negative" style={{ padding: '10px 14px', fontSize: 13 }}>
-                                                    <span style={{ color: 'var(--spectrum-red)', flexShrink: 0 }}>❝</span>
-                                                    <div>
-                                                        <span>{item.text}</span>
-                                                        {item.sourceUrl && (
-                                                            <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer"
-                                                                style={{ display: 'block', fontSize: 11, color: 'var(--spectrum-red)', textDecoration: 'none', marginTop: 4, opacity: 0.8 }}>
-                                                                ↗ {item.sourceTitle || item.sourceUrl}
-                                                            </a>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    <div style={{ padding: '12px 16px', borderRadius: 8, background: 'rgba(255,204,51,0.05)', border: '1px solid rgba(255,204,51,0.15)' }}>
-                                        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--spectrum-yellow)', marginBottom: 6 }}>▸ 市場の再定義</p>
-                                        <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.8, color: 'var(--text-primary)', margin: 0 }}>
-                                            {partialPhase1.marketRedefinition}
-                                        </p>
-                                    </div>
-                                    {partialGroundingSources.length > 0 && (
-                                        <div style={{ marginTop: 12 }}>
-                                            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
-                                                🔗 ソース（{partialGroundingSources.length}件）
-                                            </p>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                {partialGroundingSources.map((src, i) => (
-                                                    <a key={i} href={src.url} target="_blank" rel="noopener noreferrer"
-                                                        style={{ fontSize: 11, color: 'var(--spectrum-cyan)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        ↗ {src.title}
-                                                    </a>
-                                                ))}
-                                            </div>
+                                                );
+                                            })}
                                         </div>
-                                    )}
-                                </div>
-                            )}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+                                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--spectrum-red)', marginBottom: 4 }}>Negative / Pain</p>
+                                            {partialPhase1.negativePains.map((v, i) => {
+                                                const item = toVoiceItem(v);
+                                                return (
+                                                    <div key={i} className="voice-item negative" style={{ padding: '10px 14px', fontSize: 13 }}>
+                                                        <span style={{ color: 'var(--spectrum-red)', flexShrink: 0 }}>❝</span>
+                                                        <div>
+                                                            <span>{item.text}</span>
+                                                            {item.sourceUrl && (
+                                                                <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer"
+                                                                    style={{ display: 'block', fontSize: 11, color: 'var(--spectrum-red)', textDecoration: 'none', marginTop: 4, opacity: 0.8 }}>
+                                                                    ↗ {item.sourceTitle || item.sourceUrl}
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <div style={{ padding: '12px 16px', borderRadius: 8, background: 'rgba(255,204,51,0.05)', border: '1px solid rgba(255,204,51,0.15)' }}>
+                                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--spectrum-yellow)', marginBottom: 6 }}>▸ 市場の再定義</p>
+                                            <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.8, color: 'var(--text-primary)', margin: 0 }}>
+                                                {partialPhase1.marketRedefinition}
+                                            </p>
+                                        </div>
+                                        {partialGroundingSources.length > 0 && (
+                                            <div style={{ marginTop: 12 }}>
+                                                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
+                                                    🔗 ソース（{partialGroundingSources.length}件）
+                                                </p>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                    {partialGroundingSources.map((src, i) => (
+                                                        <a key={i} href={src.url} target="_blank" rel="noopener noreferrer"
+                                                            style={{ fontSize: 11, color: 'var(--spectrum-cyan)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            ↗ {src.title}
+                                                        </a>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
-                            {/* Phase 2 partial */}
-                            {partialPhase2 && (
-                                <div className="glass-card" style={{ padding: 28, marginBottom: 12 }}>
-                                    <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <span style={{ color: 'var(--spectrum-green)' }}>✓</span> ◈ Phase 2: 社会言語
-                                    </h4>
+                                {/* Phase 2 tab */}
+                                {progressTab === 'language' && partialPhase2 && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                                         {partialPhase2.map((sl, i) => (
                                             <div key={i} className="sl-card">
@@ -491,29 +508,26 @@ export default function ResultsPage() {
                                             </div>
                                         ))}
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {/* Phase 3 partial */}
-                            {partialPhase3 && (
-                                <div className="glass-card" style={{ padding: 28, marginBottom: 12 }}>
-                                    <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <span style={{ color: 'var(--spectrum-green)' }}>✓</span> 📊 Phase 3: 調査設計
-                                    </h4>
-                                    <div style={{ marginBottom: 16 }}>
-                                        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>定量設問</p>
-                                        <ol style={{ paddingLeft: 20, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                                            {partialPhase3.quantitative.map((q, i) => <li key={i}>{q}</li>)}
-                                        </ol>
-                                    </div>
+                                {/* Phase 3 tab */}
+                                {progressTab === 'survey' && partialPhase3 && (
                                     <div>
-                                        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>定性設問</p>
-                                        <ol style={{ paddingLeft: 20, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                                            {partialPhase3.qualitative.map((q, i) => <li key={i}>{q}</li>)}
-                                        </ol>
+                                        <div style={{ marginBottom: 16 }}>
+                                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>定量設問</p>
+                                            <ol style={{ paddingLeft: 20, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                                                {partialPhase3.quantitative.map((q, i) => <li key={i}>{q}</li>)}
+                                            </ol>
+                                        </div>
+                                        <div>
+                                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>定性設問</p>
+                                            <ol style={{ paddingLeft: 20, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                                                {partialPhase3.qualitative.map((q, i) => <li key={i}>{q}</li>)}
+                                            </ol>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
