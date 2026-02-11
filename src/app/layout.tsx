@@ -1,11 +1,7 @@
-import type { Metadata } from "next";
-import "./globals.css";
+'use client';
 
-export const metadata: Metadata = {
-  title: "PRISM — 社会言語開発モジュール",
-  description:
-    "Public Resonance & Insight Synthesis Module: SNS上のノイズから美しい社会言語を結晶化する。",
-};
+import Link from 'next/link';
+import './globals.css';
 
 export default function RootLayout({
   children,
@@ -14,6 +10,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
+      <head>
+        <title>PRISM — 社会言語開発モジュール</title>
+        <meta name="description" content="Public Resonance & Insight Synthesis Module: SNS上のノイズから美しい社会言語を結晶化する。" />
+      </head>
       <body>
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
@@ -29,7 +29,7 @@ export default function RootLayout({
             zIndex: 100,
             background: 'rgba(5, 5, 16, 0.85)',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
               <span style={{ fontSize: '24px' }}>◈</span>
               <span className="prism-text" style={{
                 fontSize: '20px',
@@ -49,14 +49,18 @@ export default function RootLayout({
                 <span>Public Resonance & Insight Synthesis Module</span>
                 <span style={{ fontSize: '10px', opacity: 0.7 }}>大衆の共鳴とインサイトの統合モジュール</span>
               </span>
-            </div>
-            <div style={{
-              fontSize: '12px',
-              color: 'var(--text-muted)',
-              letterSpacing: '0.02em',
-            }}>
-              by Antigravity
-            </div>
+            </Link>
+            <nav style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <Link href="/history" style={navLinkStyle}>📋 履歴</Link>
+              <Link href="/settings" style={navLinkStyle}>⚙️ 設定</Link>
+              <span style={{
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+                letterSpacing: '0.02em',
+              }}>
+                by Antigravity
+              </span>
+            </nav>
           </header>
 
           {/* Main */}
@@ -68,3 +72,14 @@ export default function RootLayout({
     </html>
   );
 }
+
+const navLinkStyle: React.CSSProperties = {
+  fontSize: '13px',
+  color: 'var(--text-secondary)',
+  textDecoration: 'none',
+  padding: '6px 12px',
+  borderRadius: 8,
+  transition: 'all 0.2s',
+  border: '1px solid transparent',
+};
+

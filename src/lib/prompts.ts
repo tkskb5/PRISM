@@ -2,18 +2,39 @@
 // PRISM — Prompt Templates for 4-Phase Analysis
 // ============================================================
 
-import type { PrismInput } from './types';
+import type { PrismInput, CustomPrompts } from './types';
 
-/** Phase 1: Deep Listening & Insight */
-export function buildPhase1Prompt(input: PrismInput): string {
-    return `【Phase 1: Deep Listening & Insight — 前提の整理】
+// ── Default System Prompt ──
+export const DEFAULT_SYSTEM_PROMPT = `あなたは「社会記号学者 兼 マーケティングストラテジスト」です。
 
-対象商材: ${input.productName}
-カテゴリ: ${input.category}
-現状の課題・特徴: ${input.challenges}
+【あなたの役割】
+- 脱・広告: 「売り込み」のトーンを排除し、「社会的な発見」のトーンで語る。
+- 脱・妥協: 「安いから我慢する」ではなく「安いからこそ面白い」というような、価値の反転（逆転）を見つけ出す。
+- 共感のエンジニアリング: 生活者がSNSでつぶやきたくなる「ドヤ感」や「自己肯定感」を言語化する。
+
+【社会言語とは】
+一般呼称ではなく、特定のサービス名でもなく、社会の共感として潜在的にあったものが「言語化」されることにより、納得と賛同が広がり、新たな定義と市場が広がっていくキーワード。
+例：「胃部膨満感」のように、症状や現象に名前がつくことで顕在化するもの。
+
+【品質基準】
+1. ドヤ感: その言葉を使った時、「賢い私」「工夫している私」という肯定感が生まれるか
+2. 遊びの余白: 用途を限定せず、「あなたならどう使う？」という問いかけが内包されているか
+3. 脱・妥協: 「我慢する」ではなく、「だからこそ最高に面白い」という価値の逆転があるか
+4. メディア親和性: ニュースのテロップやSNSのハッシュタグとして違和感がないか
+
+必ず日本語で回答してください。`;
+
+// ── Default Phase Templates ──
+// Variables: {{productName}}, {{category}}, {{challenges}}, {{phase1Summary}}, {{socialLanguages}}, {{surveyDesign}}
+
+export const DEFAULT_PHASE1_TEMPLATE = `【Phase 1: Deep Listening & Insight — 前提の整理】
+
+対象商材: {{productName}}
+カテゴリ: {{category}}
+現状の課題・特徴: {{challenges}}
 
 あなたのタスク:
-「${input.category}」について、SNSやレビューサイトでの生活者の声を深く聴取し、以下を抽出してください。
+「{{category}}」について、SNSやレビューサイトでの生活者の声を深く聴取し、以下を抽出してください。
 
 1. **ポジティブ・ハック（Positive/Hack）**: メーカーの意図を超えた使い方、シンデレラフィット、攻略の悦び。生活者の生々しい一人称の言葉で10個。
 2. **ネガティブ・ペイン（Negative/Pain）**: 諦め、虚無感、仕方なく使っている感覚。生活者の生々しい一人称の言葉で10個。
@@ -25,19 +46,13 @@ export function buildPhase1Prompt(input: PrismInput): string {
   "negativePains": ["声1", "声2", ...],
   "marketRedefinition": "定義文"
 }`;
-}
 
-/** Phase 2: Social Language Development */
-export function buildPhase2Prompt(
-    input: PrismInput,
-    phase1Summary: string
-): string {
-    return `【Phase 2: Social Language Development — 社会言語開発】
+export const DEFAULT_PHASE2_TEMPLATE = `【Phase 2: Social Language Development — 社会言語開発】
 
-対象商材: ${input.productName}
-カテゴリ: ${input.category}
+対象商材: {{productName}}
+カテゴリ: {{category}}
 Deep Listeningの結果:
-${phase1Summary}
+{{phase1Summary}}
 
 あなたのタスク:
 Deep Listeningで得た「生の声」を、一般名詞化された「社会言語」へと昇華させてください。
@@ -64,19 +79,13 @@ Deep Listeningで得た「生の声」を、一般名詞化された「社会言
 ]
 
 3つの社会言語を出力してください。`;
-}
 
-/** Phase 3: Evidence Design */
-export function buildPhase3Prompt(
-    input: PrismInput,
-    socialLanguages: string
-): string {
-    return `【Phase 3: Evidence Design — イシューデザイン調査設計】
+export const DEFAULT_PHASE3_TEMPLATE = `【Phase 3: Evidence Design — イシューデザイン調査設計】
 
-対象商材: ${input.productName}
-カテゴリ: ${input.category}
+対象商材: {{productName}}
+カテゴリ: {{category}}
 開発した社会言語:
-${socialLanguages}
+{{socialLanguages}}
 
 あなたのタスク:
 「社会言語が、実は社会の正解である」ことを証明するための調査を設計してください。
@@ -94,28 +103,20 @@ ${socialLanguages}
   "quantitative": ["設問1", "設問2", "設問3"],
   "qualitative": ["設問1"]
 }`;
-}
 
-/** Phase 4: Output Generation */
-export function buildPhase4Prompt(
-    input: PrismInput,
-    phase1Summary: string,
-    socialLanguages: string,
-    surveyDesign: string
-): string {
-    return `【Phase 4: Output Generation — アウトプット生成】
+export const DEFAULT_PHASE4_TEMPLATE = `【Phase 4: Output Generation — アウトプット生成】
 
-対象商材: ${input.productName}
-カテゴリ: ${input.category}
+対象商材: {{productName}}
+カテゴリ: {{category}}
 
 Phase 1（Deep Listening）結果:
-${phase1Summary}
+{{phase1Summary}}
 
 Phase 2（社会言語）:
-${socialLanguages}
+{{socialLanguages}}
 
 Phase 3（調査設計）:
-${surveyDesign}
+{{surveyDesign}}
 
 あなたのタスク:
 以下の3つのアウトプットを生成してください。
@@ -132,4 +133,70 @@ ${surveyDesign}
   "positioning": "ポジショニング提案文",
   "newsHeadline": "ニュース見出し（1行）"
 }`;
+
+/** Get all default prompts as a single object */
+export function getDefaultPrompts(): CustomPrompts {
+  return {
+    systemPrompt: DEFAULT_SYSTEM_PROMPT,
+    phase1Template: DEFAULT_PHASE1_TEMPLATE,
+    phase2Template: DEFAULT_PHASE2_TEMPLATE,
+    phase3Template: DEFAULT_PHASE3_TEMPLATE,
+    phase4Template: DEFAULT_PHASE4_TEMPLATE,
+  };
+}
+
+// ── Template Variable Replacement ──
+function fillTemplate(template: string, vars: Record<string, string>): string {
+  return Object.entries(vars).reduce(
+    (t, [key, value]) => t.replaceAll(`{{${key}}}`, value),
+    template
+  );
+}
+
+/** Phase 1: Deep Listening & Insight */
+export function buildPhase1Prompt(input: PrismInput, customTemplate?: string): string {
+  const template = customTemplate || DEFAULT_PHASE1_TEMPLATE;
+  return fillTemplate(template, {
+    productName: input.productName,
+    category: input.category,
+    challenges: input.challenges,
+  });
+}
+
+/** Phase 2: Social Language Development */
+export function buildPhase2Prompt(input: PrismInput, phase1Summary: string, customTemplate?: string): string {
+  const template = customTemplate || DEFAULT_PHASE2_TEMPLATE;
+  return fillTemplate(template, {
+    productName: input.productName,
+    category: input.category,
+    phase1Summary,
+  });
+}
+
+/** Phase 3: Evidence Design */
+export function buildPhase3Prompt(input: PrismInput, socialLanguages: string, customTemplate?: string): string {
+  const template = customTemplate || DEFAULT_PHASE3_TEMPLATE;
+  return fillTemplate(template, {
+    productName: input.productName,
+    category: input.category,
+    socialLanguages,
+  });
+}
+
+/** Phase 4: Output Generation */
+export function buildPhase4Prompt(
+  input: PrismInput,
+  phase1Summary: string,
+  socialLanguages: string,
+  surveyDesign: string,
+  customTemplate?: string,
+): string {
+  const template = customTemplate || DEFAULT_PHASE4_TEMPLATE;
+  return fillTemplate(template, {
+    productName: input.productName,
+    category: input.category,
+    phase1Summary,
+    socialLanguages,
+    surveyDesign,
+  });
 }

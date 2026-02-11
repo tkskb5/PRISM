@@ -4,25 +4,7 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { GeminiModel } from './types';
-
-const SYSTEM_PROMPT = `あなたは「社会記号学者 兼 マーケティングストラテジスト」です。
-
-【あなたの役割】
-- 脱・広告: 「売り込み」のトーンを排除し、「社会的な発見」のトーンで語る。
-- 脱・妥協: 「安いから我慢する」ではなく「安いからこそ面白い」というような、価値の反転（逆転）を見つけ出す。
-- 共感のエンジニアリング: 生活者がSNSでつぶやきたくなる「ドヤ感」や「自己肯定感」を言語化する。
-
-【社会言語とは】
-一般呼称ではなく、特定のサービス名でもなく、社会の共感として潜在的にあったものが「言語化」されることにより、納得と賛同が広がり、新たな定義と市場が広がっていくキーワード。
-例：「胃部膨満感」のように、症状や現象に名前がつくことで顕在化するもの。
-
-【品質基準】
-1. ドヤ感: その言葉を使った時、「賢い私」「工夫している私」という肯定感が生まれるか
-2. 遊びの余白: 用途を限定せず、「あなたならどう使う？」という問いかけが内包されているか
-3. 脱・妥協: 「我慢する」ではなく、「だからこそ最高に面白い」という価値の逆転があるか
-4. メディア親和性: ニュースのテロップやSNSのハッシュタグとして違和感がないか
-
-必ず日本語で回答してください。`;
+import { DEFAULT_SYSTEM_PROMPT } from './prompts';
 
 let genAI: GoogleGenerativeAI | null = null;
 
@@ -39,11 +21,15 @@ function getClient(): GoogleGenerativeAI {
 
 const DEFAULT_MODEL: GeminiModel = 'gemini-3-flash-preview';
 
-export async function generateContent(prompt: string, modelId: GeminiModel = DEFAULT_MODEL): Promise<string> {
+export async function generateContent(
+    prompt: string,
+    modelId: GeminiModel = DEFAULT_MODEL,
+    systemPrompt: string = DEFAULT_SYSTEM_PROMPT,
+): Promise<string> {
     const client = getClient();
     const model = client.getGenerativeModel({
         model: modelId,
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: systemPrompt,
     });
 
     const result = await model.generateContent(prompt);
@@ -51,11 +37,16 @@ export async function generateContent(prompt: string, modelId: GeminiModel = DEF
     return response.text();
 }
 
-export async function generateJSON<T>(prompt: string, modelId: GeminiModel = DEFAULT_MODEL, maxRetries = 2): Promise<T> {
+export async function generateJSON<T>(
+    prompt: string,
+    modelId: GeminiModel = DEFAULT_MODEL,
+    systemPrompt: string = DEFAULT_SYSTEM_PROMPT,
+    maxRetries = 2,
+): Promise<T> {
     const client = getClient();
     const model = client.getGenerativeModel({
         model: modelId,
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: systemPrompt,
         generationConfig: {
             responseMimeType: 'application/json',
         },

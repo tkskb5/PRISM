@@ -7,6 +7,7 @@ import type {
     AnalysisPhase,
 } from '@/lib/types';
 import { generateMarkdownReport } from '@/lib/export';
+import { saveHistory, getCustomPrompts } from '@/lib/storage';
 
 // ── HTML sanitization ──
 function escapeHtml(text: string): string {
@@ -167,10 +168,13 @@ export default function ResultsPage() {
         }, 8000);
 
         try {
+            // Load custom prompts from localStorage
+            const customPrompts = getCustomPrompts();
+
             const res = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(inputData),
+                body: JSON.stringify({ input: inputData, customPrompts }),
             });
 
             clearInterval(phaseTimer);
@@ -183,6 +187,9 @@ export default function ResultsPage() {
             const data: PrismResult = await res.json();
             setResult(data);
             setPhase('complete');
+
+            // Save to history
+            saveHistory(inputData, data);
         } catch (err) {
             clearInterval(phaseTimer);
             setError(err instanceof Error ? err.message : 'Unknown error');

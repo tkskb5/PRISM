@@ -59,3 +59,20 @@ export type AnalysisPhase =
     | 'phase4'
     | 'complete'
     | 'error';
+
+/** 実行履歴エントリ */
+export interface HistoryEntry {
+    id: string;
+    timestamp: string;
+    input: PrismInput;
+    result: PrismResult;
+}
+
+/** カスタムプロンプト設定 */
+export interface CustomPrompts {
+    systemPrompt: string;
+    phase1Template: string;
+    phase2Template: string;
+    phase3Template: string;
+    phase4Template: string;
+}
