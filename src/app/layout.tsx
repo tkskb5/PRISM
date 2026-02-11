@@ -53,13 +53,7 @@ export default function RootLayout({
             <nav style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <Link href="/history" style={navLinkStyle}>📋 履歴</Link>
               <Link href="/settings" style={navLinkStyle}>⚙️ 設定</Link>
-              <span style={{
-                fontSize: '12px',
-                color: 'var(--text-muted)',
-                letterSpacing: '0.02em',
-              }}>
-                by Antigravity
-              </span>
+              <Link href="/manual" style={navLinkStyle}>📖 マニュアル</Link>
             </nav>
           </header>
 
