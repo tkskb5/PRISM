@@ -24,8 +24,8 @@ export const dangerBtnStyle: React.CSSProperties = {
 
 /** Section container style */
 export const sectionStyle: React.CSSProperties = {
-    marginTop: 16,
-    padding: '12px 16px',
+    marginTop: 24,
+    padding: '16px 20px',
     borderRadius: 8,
     background: 'rgba(255,255,255,0.02)',
     border: '1px solid var(--border-subtle)',

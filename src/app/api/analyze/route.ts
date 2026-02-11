@@ -92,6 +92,7 @@ export async function POST(request: Request) {
                 const phase1 = await generateJSON<DeepListeningResult>(phase1Prompt, modelId, systemPrompt);
 
                 send({ type: 'progress', phase: 1, percent: 18, message: 'Phase 1: Deep Listening 完了 ✓' });
+                send({ type: 'phase_result', phase: 1, data: phase1, groundingSources: groundedResult.sources });
 
                 const phase1Summary = `ポジティブ・ハック:\n${phase1.positiveHacks.map((h) => `- ${h}`).join('\n')}\n\nネガティブ・ペイン:\n${phase1.negativePains.map((p) => `- ${p}`).join('\n')}\n\n市場の再定義: ${phase1.marketRedefinition}`;
 
@@ -104,6 +105,7 @@ export async function POST(request: Request) {
                 const phase2 = await generateJSON<SocialLanguage[]>(phase2Prompt, modelId, systemPrompt);
 
                 send({ type: 'progress', phase: 2, percent: 22, message: 'Phase 2: Social Language 完了 ✓' });
+                send({ type: 'phase_result', phase: 2, data: phase2 });
 
                 const socialLanguagesSummary = phase2
                     .map((sl, i) => `${i + 1}. ${sl.keyword}\n   ストーリー: ${sl.story}\n   ファクト: ${sl.fact}`)
@@ -118,6 +120,7 @@ export async function POST(request: Request) {
                 const phase3 = await generateJSON<SurveyDesign>(phase3Prompt, modelId, systemPrompt);
 
                 send({ type: 'progress', phase: 3, percent: 30, message: 'Phase 3: Evidence Design 完了 ✓' });
+                send({ type: 'phase_result', phase: 3, data: phase3 });
 
                 const surveyDesignSummary = `定量設問:\n${phase3.quantitative.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n定性設問:\n${phase3.qualitative.map((q, i) => `${i + 1}. ${q}`).join('\n')}`;
 
