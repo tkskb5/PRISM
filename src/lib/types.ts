@@ -2,6 +2,12 @@
 // PRISM — Type Definitions
 // ============================================================
 
+/** Google検索グラウンディングの参照元 */
+export interface GroundingSource {
+    title: string;
+    url: string;
+}
+
 /** 利用可能なGeminiモデル */
 export type GeminiModel = 'gemini-3-flash-preview' | 'gemini-3-pro-preview';
 
@@ -48,6 +54,8 @@ export interface PrismResult {
     phase2: SocialLanguage[];
     phase3: SurveyDesign;
     phase4: OutputGeneration;
+    /** Phase 1 で使用したGoogle検索の参照元 */
+    groundingSources?: GroundingSource[];
 }
 
 /** 分析ステータス */

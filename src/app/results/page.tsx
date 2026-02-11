@@ -483,6 +483,60 @@ export default function ResultsPage() {
                                             {result.phase1.marketRedefinition}
                                         </p>
                                     </div>
+
+                                    {/* Grounding Sources */}
+                                    {result.groundingSources && result.groundingSources.length > 0 && (
+                                        <div style={{ marginTop: 28 }}>
+                                            <h3 style={{
+                                                fontSize: 14,
+                                                fontWeight: 700,
+                                                color: 'var(--text-muted)',
+                                                marginBottom: 12,
+                                                letterSpacing: '0.05em',
+                                            }}>
+                                                🔗 Google検索ソース（{result.groundingSources.length}件）
+                                            </h3>
+                                            <div style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: 6,
+                                                padding: '14px 18px',
+                                                borderRadius: 10,
+                                                background: 'rgba(255,255,255,0.03)',
+                                                border: '1px solid var(--border-subtle)',
+                                            }}>
+                                                {result.groundingSources.map((source, i) => (
+                                                    <a
+                                                        key={i}
+                                                        href={source.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{
+                                                            fontSize: 13,
+                                                            color: 'var(--spectrum-cyan)',
+                                                            textDecoration: 'none',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: 6,
+                                                            padding: '4px 0',
+                                                            transition: 'opacity 0.2s',
+                                                        }}
+                                                        onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+                                                        onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                                                    >
+                                                        <span style={{ flexShrink: 0 }}>↗</span>
+                                                        <span style={{
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: 'nowrap',
+                                                        }}>
+                                                            {source.title}
+                                                        </span>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

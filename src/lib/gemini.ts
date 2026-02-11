@@ -21,6 +21,18 @@ function getClient(): GoogleGenAI {
 
 const DEFAULT_MODEL: GeminiModel = 'gemini-3-flash-preview';
 
+/** A source reference from Google Search grounding */
+export interface GroundingSource {
+    title: string;
+    url: string;
+}
+
+/** Result from a grounded content generation */
+export interface GroundedResult {
+    text: string;
+    sources: GroundingSource[];
+}
+
 /**
  * Generate plain text content.
  */
@@ -78,7 +90,7 @@ export async function generateJSON<T>(
 
 /**
  * Generate content with Google Search grounding enabled.
- * Returns grounded text (natural language with search references).
+ * Returns grounded text AND source URLs from the search results.
  *
  * NOTE: Grounding cannot be combined with JSON response mode,
  * so this returns raw text. Use generateJSON separately to
@@ -88,7 +100,7 @@ export async function generateGroundedContent(
     prompt: string,
     modelId: GeminiModel = DEFAULT_MODEL,
     systemPrompt: string = DEFAULT_SYSTEM_PROMPT,
-): Promise<string> {
+): Promise<GroundedResult> {
     const client = getClient();
     const response = await client.models.generateContent({
         model: modelId,
@@ -98,5 +110,23 @@ export async function generateGroundedContent(
             tools: [{ googleSearch: {} }],
         },
     });
-    return response.text ?? '';
+
+    // Extract source URLs from grounding metadata
+    const sources: GroundingSource[] = [];
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    if (chunks) {
+        for (const chunk of chunks) {
+            if (chunk.web?.uri) {
+                sources.push({
+                    title: chunk.web.title ?? chunk.web.uri,
+                    url: chunk.web.uri,
+                });
+            }
+        }
+    }
+
+    return {
+        text: response.text ?? '',
+        sources,
+    };
 }

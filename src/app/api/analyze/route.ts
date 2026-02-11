@@ -82,13 +82,13 @@ export async function POST(request: Request) {
 
                 // Step 1: Grounded research — searches the real web
                 const groundingPrompt = buildGroundingPrompt(input);
-                const groundedResearch = await generateGroundedContent(groundingPrompt, modelId, systemPrompt);
+                const groundedResult = await generateGroundedContent(groundingPrompt, modelId, systemPrompt);
 
                 send({ type: 'progress', phase: 1, percent: 10, message: 'Phase 1: 調査データを分析・構造化中...' });
 
                 // Step 2: Structure the grounded data into JSON
                 const phase1Prompt = buildPhase1Prompt(input, prompts?.phase1Template)
-                    + `\n\n【参考: Google検索による実際の生活者の声】\n${groundedResearch}`;
+                    + `\n\n【参考: Google検索による実際の生活者の声】\n${groundedResult.text}`;
                 const phase1 = await generateJSON<DeepListeningResult>(phase1Prompt, modelId, systemPrompt);
 
                 send({ type: 'progress', phase: 1, percent: 18, message: 'Phase 1: Deep Listening 完了 ✓' });
@@ -180,6 +180,7 @@ export async function POST(request: Request) {
                         phase2,
                         phase3,
                         phase4,
+                        groundingSources: groundedResult.sources,
                     },
                 });
             } catch (error) {
