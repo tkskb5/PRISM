@@ -1,42 +1,48 @@
 // ============================================================
-// PRISM — Gemini API Client
+// PRISM — Gemini API Client (with Grounding support)
 // ============================================================
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import type { GeminiModel } from './types';
 import { DEFAULT_SYSTEM_PROMPT } from './prompts';
 
-let genAI: GoogleGenerativeAI | null = null;
+let ai: GoogleGenAI | null = null;
 
-function getClient(): GoogleGenerativeAI {
-    if (!genAI) {
+function getClient(): GoogleGenAI {
+    if (!ai) {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
             throw new Error('GEMINI_API_KEY environment variable is not set');
         }
-        genAI = new GoogleGenerativeAI(apiKey);
+        ai = new GoogleGenAI({ apiKey });
     }
-    return genAI;
+    return ai;
 }
 
 const DEFAULT_MODEL: GeminiModel = 'gemini-3-flash-preview';
 
+/**
+ * Generate plain text content.
+ */
 export async function generateContent(
     prompt: string,
     modelId: GeminiModel = DEFAULT_MODEL,
     systemPrompt: string = DEFAULT_SYSTEM_PROMPT,
 ): Promise<string> {
     const client = getClient();
-    const model = client.getGenerativeModel({
+    const response = await client.models.generateContent({
         model: modelId,
-        systemInstruction: systemPrompt,
+        contents: prompt,
+        config: {
+            systemInstruction: systemPrompt,
+        },
     });
-
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    return response.text();
+    return response.text ?? '';
 }
 
+/**
+ * Generate and parse JSON response.
+ */
 export async function generateJSON<T>(
     prompt: string,
     modelId: GeminiModel = DEFAULT_MODEL,
@@ -44,21 +50,19 @@ export async function generateJSON<T>(
     maxRetries = 2,
 ): Promise<T> {
     const client = getClient();
-    const model = client.getGenerativeModel({
-        model: modelId,
-        systemInstruction: systemPrompt,
-        generationConfig: {
-            responseMimeType: 'application/json',
-        },
-    });
-
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-            const result = await model.generateContent(prompt);
-            const response = result.response;
-            const text = response.text();
+            const response = await client.models.generateContent({
+                model: modelId,
+                contents: prompt,
+                config: {
+                    systemInstruction: systemPrompt,
+                    responseMimeType: 'application/json',
+                },
+            });
+            const text = response.text ?? '';
             return JSON.parse(text) as T;
         } catch (error) {
             lastError = error instanceof Error ? error : new Error(String(error));
@@ -70,4 +74,29 @@ export async function generateJSON<T>(
     }
 
     throw new Error(`Failed after ${maxRetries + 1} attempts: ${lastError?.message}`);
+}
+
+/**
+ * Generate content with Google Search grounding enabled.
+ * Returns grounded text (natural language with search references).
+ *
+ * NOTE: Grounding cannot be combined with JSON response mode,
+ * so this returns raw text. Use generateJSON separately to
+ * structure the grounded output.
+ */
+export async function generateGroundedContent(
+    prompt: string,
+    modelId: GeminiModel = DEFAULT_MODEL,
+    systemPrompt: string = DEFAULT_SYSTEM_PROMPT,
+): Promise<string> {
+    const client = getClient();
+    const response = await client.models.generateContent({
+        model: modelId,
+        contents: prompt,
+        config: {
+            systemInstruction: systemPrompt,
+            tools: [{ googleSearch: {} }],
+        },
+    });
+    return response.text ?? '';
 }

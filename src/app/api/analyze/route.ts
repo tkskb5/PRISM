@@ -2,7 +2,7 @@
 // PRISM — Analysis API Route (SSE Streaming)
 // ============================================================
 
-import { generateJSON } from '@/lib/gemini';
+import { generateJSON, generateGroundedContent } from '@/lib/gemini';
 import {
     buildPhase1Prompt,
     buildPhase2Prompt,
@@ -11,6 +11,7 @@ import {
     buildPhase4aPrompt,
     buildPhase4bPrompt,
     buildPhase4cPrompt,
+    buildGroundingPrompt,
     DEFAULT_SYSTEM_PROMPT,
 } from '@/lib/prompts';
 import type {
@@ -33,9 +34,9 @@ interface AnalyzeRequest {
 /**
  * SSE streaming endpoint — sends progress events as each phase completes.
  *
- * Percentages are weighted by estimated processing time, not equal per phase.
- * Phase 4 is split into 3 sub-calls (report, press release, positioning)
- * to provide granular progress during the longest phase.
+ * Phase 1 uses Google Search grounding for real consumer voice data.
+ * Phase 4 is split into 3 sub-calls for granular progress.
+ * Percentages are weighted by estimated processing time.
  */
 export async function POST(request: Request) {
     let body: AnalyzeRequest;
@@ -73,14 +74,24 @@ export async function POST(request: Request) {
 
             try {
                 // ────────────────────────────────────────────
-                // Phase 1: Deep Listening & Insight (~12%)
+                // Phase 1: Deep Listening & Insight (~18%)
+                //   Step 1: Google Search grounded research
+                //   Step 2: Structure into JSON
                 // ────────────────────────────────────────────
-                send({ type: 'progress', phase: 1, percent: 2, message: 'Phase 1: Deep Listening — 生活者の声を聴取中...' });
+                send({ type: 'progress', phase: 1, percent: 2, message: 'Phase 1: Google検索で生活者のリアルな声を調査中...' });
 
-                const phase1Prompt = buildPhase1Prompt(input, prompts?.phase1Template);
+                // Step 1: Grounded research — searches the real web
+                const groundingPrompt = buildGroundingPrompt(input);
+                const groundedResearch = await generateGroundedContent(groundingPrompt, modelId, systemPrompt);
+
+                send({ type: 'progress', phase: 1, percent: 10, message: 'Phase 1: 調査データを分析・構造化中...' });
+
+                // Step 2: Structure the grounded data into JSON
+                const phase1Prompt = buildPhase1Prompt(input, prompts?.phase1Template)
+                    + `\n\n【参考: Google検索による実際の生活者の声】\n${groundedResearch}`;
                 const phase1 = await generateJSON<DeepListeningResult>(phase1Prompt, modelId, systemPrompt);
 
-                send({ type: 'progress', phase: 1, percent: 12, message: 'Phase 1: Deep Listening 完了 ✓' });
+                send({ type: 'progress', phase: 1, percent: 18, message: 'Phase 1: Deep Listening 完了 ✓' });
 
                 const phase1Summary = `ポジティブ・ハック:\n${phase1.positiveHacks.map((h) => `- ${h}`).join('\n')}\n\nネガティブ・ペイン:\n${phase1.negativePains.map((p) => `- ${p}`).join('\n')}\n\n市場の再定義: ${phase1.marketRedefinition}`;
 

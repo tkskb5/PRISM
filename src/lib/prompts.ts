@@ -27,6 +27,29 @@ export const DEFAULT_SYSTEM_PROMPT = `あなたは「社会記号学者 兼 マ�
 // ── Default Phase Templates ──
 // Variables: {{productName}}, {{category}}, {{challenges}}, {{phase1Summary}}, {{socialLanguages}}, {{surveyDesign}}
 
+// ── Grounding Research Prompt (used with Google Search) ──
+export const GROUNDING_RESEARCH_PROMPT = `以下の商材について、SNS・レビューサイト・掲示板・ブログ等での生活者のリアルな声を調査してください。
+
+商材: {{productName}}
+カテゴリ: {{category}}
+特徴・課題: {{challenges}}
+
+調査すべき内容:
+1. ポジティブな声（意外な使い方、シンデレラフィット、攻略の悦び、裏ワザ）
+2. ネガティブな声（不満、諦め、妥協、改善要望）
+3. 市場や業界に対する生活者の認識・トレンド
+
+できるだけ具体的で生々しい声を、実在のSNS投稿やレビューから引用・参照してください。
+出典URL があれば含めてください。日本語で回答してください。`;
+
+export function buildGroundingPrompt(input: PrismInput): string {
+  return fillTemplate(GROUNDING_RESEARCH_PROMPT, {
+    productName: input.productName,
+    category: input.category,
+    challenges: input.challenges,
+  });
+}
+
 export const DEFAULT_PHASE1_TEMPLATE = `【Phase 1: Deep Listening & Insight — 前提の整理】
 
 対象商材: {{productName}}
