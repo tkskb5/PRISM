@@ -211,6 +211,9 @@ body::before {
   font-size: 15px;
   transition: all 0.3s;
   outline: none;
+  color-scheme: dark;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .prism-input:focus {
@@ -220,6 +223,16 @@ body::before {
 
 .prism-input::placeholder {
   color: var(--text-muted);
+}
+
+/* Prevent browser autofill from overriding dark theme */
+.prism-input:-webkit-autofill,
+.prism-input:-webkit-autofill:hover,
+.prism-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px rgba(10, 10, 30, 1) inset;
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--text-primary);
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 textarea.prism-input {

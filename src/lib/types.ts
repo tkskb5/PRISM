@@ -18,7 +18,7 @@ export interface GroundingSegment {
 export type GeminiModel = 'gemini-3-flash-preview' | 'gemini-3-pro-preview';
 
 /** リサーチ深度 */
-export type ResearchDepth = 'standard' | 'deep';
+export type ResearchDepth = 'standard' | 'deep' | 'manual' | 'api-deep-research';
 
 /** コンサルタントからの入力 */
 export interface PrismInput {
@@ -27,6 +27,8 @@ export interface PrismInput {
     challenges: string;
     model?: GeminiModel;
     researchDepth?: ResearchDepth;
+    /** Manual Deep Research mode: user-pasted research data */
+    manualResearchData?: string;
 }
 
 /** Phase 1: 個別の声（出典URL付き） */

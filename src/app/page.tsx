@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { GeminiModel, ResearchDepth } from '@/lib/types';
+import { buildManualResearchPrompt } from '@/lib/prompts';
 
 const CATEGORY_EXAMPLES = [
   '100円ショップ', '軽トラ', '生命保険', '事務用品', '中古家電',
@@ -16,9 +17,17 @@ export default function HomePage() {
   const [challenges, setChallenges] = useState('');
   const [model, setModel] = useState<GeminiModel>('gemini-3-flash-preview');
   const [researchDepth, setResearchDepth] = useState<ResearchDepth>('standard');
+  const [manualResearchData, setManualResearchData] = useState('');
+  const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const isValid = productName.trim() && category.trim() && challenges.trim();
+  const manualPrompt = useMemo(() => {
+    if (researchDepth !== 'manual' || !productName.trim() || !category.trim()) return '';
+    return buildManualResearchPrompt({ productName, category, challenges });
+  }, [researchDepth, productName, category, challenges]);
+
+  const isValid = productName.trim() && category.trim() && challenges.trim()
+    && (researchDepth !== 'manual' || manualResearchData.trim());
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,7 +36,10 @@ export default function HomePage() {
     setIsLoading(true);
 
     // Store input and navigate to results page
-    const input = { productName, category, challenges, model, researchDepth };
+    const input = {
+      productName, category, challenges, model, researchDepth,
+      ...(researchDepth === 'manual' ? { manualResearchData } : {}),
+    };
     sessionStorage.setItem('prism-input', JSON.stringify(input));
     router.push('/results');
   }
@@ -282,7 +294,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Research Depth — 2-column */}
+          {/* Research Depth — 2×2 grid */}
           <div style={{ marginBottom: 16 }}>
             <label style={{
               display: 'block',
@@ -293,7 +305,7 @@ export default function HomePage() {
             }}>
               リサーチ深度
             </label>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
               {[
                 {
                   id: 'standard' as ResearchDepth,
@@ -310,6 +322,22 @@ export default function HomePage() {
                   badgeColor: 'var(--spectrum-violet)',
                   desc: '実際のWebページを読み込んで深く分析',
                   sources: '15〜20件',
+                },
+                {
+                  id: 'manual' as ResearchDepth,
+                  name: 'Manual',
+                  badge: '最高精度',
+                  badgeColor: 'var(--spectrum-green)',
+                  desc: '外部Deep Researchの結果を取り込む',
+                  sources: '無制限',
+                },
+                {
+                  id: 'api-deep-research' as ResearchDepth,
+                  name: 'API Deep Research',
+                  badge: '最高品質',
+                  badgeColor: '#f59e0b',
+                  desc: 'Gemini Deep Research Agentが自律的に調査',
+                  sources: '50〜100+件',
                 },
               ].map((d) => (
                 <button
@@ -363,31 +391,132 @@ export default function HomePage() {
           </div>
 
           {/* Combined Estimate */}
-          <div style={{
-            marginBottom: 32,
-            padding: '10px 16px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid var(--border-subtle)',
-            display: 'flex',
-            justifyContent: 'center',
-            gap: 24,
-            fontSize: 12,
-            color: 'var(--text-muted)',
-          }}>
-            <span>⏱ 推定時間: <strong style={{ color: 'var(--text-secondary)' }}>
-              {model === 'gemini-3-flash-preview' && researchDepth === 'standard' && '約40秒'}
-              {model === 'gemini-3-flash-preview' && researchDepth === 'deep' && '約1〜2分'}
-              {model === 'gemini-3-pro-preview' && researchDepth === 'standard' && '約2〜3分'}
-              {model === 'gemini-3-pro-preview' && researchDepth === 'deep' && '約3〜5分'}
-            </strong></span>
-            <span>💰 推定コスト: <strong style={{ color: 'var(--text-secondary)' }}>
-              {model === 'gemini-3-flash-preview' && researchDepth === 'standard' && '約2〜3円'}
-              {model === 'gemini-3-flash-preview' && researchDepth === 'deep' && '約5円'}
-              {model === 'gemini-3-pro-preview' && researchDepth === 'standard' && '約8〜10円'}
-              {model === 'gemini-3-pro-preview' && researchDepth === 'deep' && '約15〜20円'}
-            </strong></span>
-          </div>
+          {researchDepth !== 'manual' && (
+            <div style={{
+              marginBottom: 32,
+              padding: '10px 16px',
+              borderRadius: 'var(--radius-sm)',
+              background: researchDepth === 'api-deep-research' ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.03)',
+              border: researchDepth === 'api-deep-research' ? '1px solid rgba(245,158,11,0.3)' : '1px solid var(--border-subtle)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: researchDepth === 'api-deep-research' ? 8 : 0,
+              fontSize: 12,
+              color: 'var(--text-muted)',
+            }}>
+              {researchDepth === 'api-deep-research' ? (
+                <>
+                  <div style={{ display: 'flex', gap: 24 }}>
+                    <span>⏱ 推定時間: <strong style={{ color: 'var(--text-secondary)' }}>約5〜15分</strong></span>
+                    <span>💰 推定コスト: <strong style={{ color: '#f59e0b' }}>約300〜750円</strong></span>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#f59e0b' }}>
+                    ⚠️ Deep Research Agentが自律的に数十ページを巡回するため、コストが高くなります
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', gap: 24, justifyContent: 'center' }}>
+                  <span>⏱ 推定時間: <strong style={{ color: 'var(--text-secondary)' }}>
+                    {model === 'gemini-3-flash-preview' && researchDepth === 'standard' && '約1分'}
+                    {model === 'gemini-3-flash-preview' && researchDepth === 'deep' && '約2〜3分'}
+                    {model === 'gemini-3-pro-preview' && researchDepth === 'standard' && '約3〜4分'}
+                    {model === 'gemini-3-pro-preview' && researchDepth === 'deep' && '約5〜8分'}
+                  </strong></span>
+                  <span>💰 推定コスト: <strong style={{ color: 'var(--text-secondary)' }}>
+                    {model === 'gemini-3-flash-preview' && researchDepth === 'standard' && '約3〜5円'}
+                    {model === 'gemini-3-flash-preview' && researchDepth === 'deep' && '約8〜10円'}
+                    {model === 'gemini-3-pro-preview' && researchDepth === 'standard' && '約12〜15円'}
+                    {model === 'gemini-3-pro-preview' && researchDepth === 'deep' && '約20〜30円'}
+                  </strong></span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Manual Deep Research UI */}
+          {researchDepth === 'manual' && (
+            <div style={{ marginBottom: 32 }}>
+              {/* Step 1: Copy Prompt */}
+              <div style={{
+                padding: 20,
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)',
+                background: 'rgba(255,255,255,0.03)',
+                marginBottom: 16,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--spectrum-green)' }}>
+                    ① Deep Research用プロンプトをコピー
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(manualPrompt);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    disabled={!manualPrompt}
+                    style={{
+                      padding: '6px 16px',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      background: copied ? 'var(--spectrum-green)' : 'rgba(255,255,255,0.1)',
+                      color: copied ? '#000' : 'var(--text-primary)',
+                      cursor: manualPrompt ? 'pointer' : 'not-allowed',
+                      transition: 'all 0.2s',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {copied ? '✓ コピー済み' : '📋 コピー'}
+                  </button>
+                </div>
+                <div style={{
+                  fontSize: 11,
+                  color: 'var(--text-muted)',
+                  lineHeight: 1.6,
+                  maxHeight: 120,
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  padding: 12,
+                  background: 'rgba(0,0,0,0.3)',
+                  borderRadius: 'var(--radius-sm)',
+                }}>
+                  {manualPrompt || '上部の商材名・カテゴリを入力するとプロンプトが生成されます'}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
+                  💡 Gemini App / Perplexity / Felo / ChatGPT などの Deep Research にこのプロンプトを貼り付けて実行してください
+                </div>
+              </div>
+
+              {/* Step 2: Paste Results */}
+              <div style={{
+                padding: 20,
+                borderRadius: 'var(--radius-md)',
+                border: `1px solid ${manualResearchData.trim() ? 'var(--spectrum-green)' : 'var(--border-subtle)'}`,
+                background: 'rgba(255,255,255,0.03)',
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--spectrum-green)', marginBottom: 12 }}>
+                  ② Deep Researchの結果を貼り付け
+                </div>
+                <textarea
+                  className="prism-input"
+                  rows={8}
+                  placeholder="Deep Researchの結果をここに貼り付けてください..."
+                  value={manualResearchData}
+                  onChange={e => setManualResearchData(e.target.value)}
+                  style={{ resize: 'vertical', minHeight: 150 }}
+                />
+                {manualResearchData.trim() && (
+                  <div style={{ fontSize: 11, color: 'var(--spectrum-green)', marginTop: 8 }}>
+                    ✓ {manualResearchData.length.toLocaleString()} 文字の研究データを取得済み
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Submit */}
           <button

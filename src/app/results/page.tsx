@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type {
     PrismInput,
     PrismResult,
@@ -156,6 +156,13 @@ const TABS = [
     { key: 'output', label: '📄 アウトプット' },
 ];
 
+/** Debug log entry received via SSE */
+interface DebugLogEntry {
+    timestamp: string;
+    label: string;
+    content: unknown;
+}
+
 export default function ResultsPage() {
     const [input, setInput] = useState<PrismInput | null>(null);
     const [phase, setPhase] = useState<AnalysisPhase>('idle');
@@ -173,10 +180,18 @@ export default function ResultsPage() {
     const [partialGroundingSources, setPartialGroundingSources] = useState<GroundingSource[]>([]);
     const [progressTab, setProgressTab] = useState<'listening' | 'language' | 'survey'>('listening');
 
+    // Debug log state
+    const [debugLogs, setDebugLogs] = useState<DebugLogEntry[]>([]);
+    const [debugExpanded, setDebugExpanded] = useState(false);
+    const [expandedLogIndices, setExpandedLogIndices] = useState<Set<number>>(new Set());
+    const debugPanelRef = useRef<HTMLDivElement>(null);
+
     const runAnalysis = useCallback(async (inputData: PrismInput) => {
         setPhase('phase1');
         setPercent(0);
         setProgressMsg('分析を開始しています...');
+        setDebugLogs([]);
+        setExpandedLogIndices(new Set());
 
         try {
             const customPrompts = getCustomPrompts();
@@ -240,6 +255,12 @@ export default function ResultsPage() {
                             saveHistory(inputData, data);
                         } else if (event.type === 'error') {
                             throw new Error(event.error);
+                        } else if (event.type === 'debug_log') {
+                            setDebugLogs(prev => [...prev, {
+                                timestamp: event.timestamp,
+                                label: event.label,
+                                content: event.content,
+                            }]);
                         }
                     } catch (parseErr) {
                         // Skip malformed SSE lines
@@ -312,14 +333,46 @@ export default function ResultsPage() {
             {/* Input Summary */}
             {input && (
                 <div className="glass-card" style={{ padding: '20px 28px', marginBottom: 32 }}>
-                    <div style={{ display: 'flex', gap: 32, fontSize: 14 }}>
-                        <div>
-                            <span style={{ color: 'var(--text-muted)', marginRight: 8 }}>商材:</span>
-                            <span style={{ fontWeight: 600 }}>{input.productName}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}>
+                        <div style={{ display: 'flex', gap: 32 }}>
+                            <div>
+                                <span style={{ color: 'var(--text-muted)', marginRight: 8 }}>商材:</span>
+                                <span style={{ fontWeight: 600 }}>{input.productName}</span>
+                            </div>
+                            <div>
+                                <span style={{ color: 'var(--text-muted)', marginRight: 8 }}>カテゴリ:</span>
+                                <span style={{ fontWeight: 600 }}>{input.category}</span>
+                            </div>
                         </div>
-                        <div>
-                            <span style={{ color: 'var(--text-muted)', marginRight: 8 }}>カテゴリ:</span>
-                            <span style={{ fontWeight: 600 }}>{input.category}</span>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <span style={{
+                                fontSize: 11,
+                                padding: '3px 10px',
+                                borderRadius: 20,
+                                background: input.model === 'gemini-3-pro-preview'
+                                    ? 'rgba(139,92,246,0.18)'
+                                    : 'rgba(59,130,246,0.18)',
+                                color: input.model === 'gemini-3-pro-preview'
+                                    ? 'var(--spectrum-violet)'
+                                    : 'var(--spectrum-blue)',
+                                fontWeight: 600,
+                            }}>
+                                {input.model === 'gemini-3-pro-preview' ? 'Gemini 3 Pro' : 'Gemini 3 Flash'}
+                            </span>
+                            <span style={{
+                                fontSize: 11,
+                                padding: '3px 10px',
+                                borderRadius: 20,
+                                background: input.researchDepth === 'deep'
+                                    ? 'rgba(139,92,246,0.18)'
+                                    : 'rgba(100,116,139,0.18)',
+                                color: input.researchDepth === 'deep'
+                                    ? 'var(--spectrum-violet)'
+                                    : 'var(--text-secondary)',
+                                fontWeight: 600,
+                            }}>
+                                {input.researchDepth === 'deep' ? '🔬 Deep Research' : '⚡ Standard'}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -528,6 +581,129 @@ export default function ResultsPage() {
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    )}
+
+                    {/* Debug Log Panel (during analysis) */}
+                    {debugLogs.length > 0 && (
+                        <div ref={debugPanelRef} style={{
+                            marginTop: 24,
+                            borderRadius: 'var(--radius-lg)',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            background: 'rgba(0,0,0,0.3)',
+                            overflow: 'hidden',
+                        }}>
+                            <button
+                                onClick={() => setDebugExpanded(!debugExpanded)}
+                                style={{
+                                    width: '100%',
+                                    padding: '14px 20px',
+                                    background: 'rgba(255,255,255,0.03)',
+                                    border: 'none',
+                                    borderBottom: debugExpanded ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 10,
+                                    fontFamily: 'inherit',
+                                    color: 'var(--text-muted)',
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                }}
+                            >
+                                <span style={{ transform: debugExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
+                                🔬 デバッグログ ({debugLogs.length}件) — リアルタイム
+                            </button>
+                            {debugExpanded && (
+                                <div style={{ maxHeight: '50vh', overflowY: 'auto', padding: '8px 0' }}>
+                                    {debugLogs.map((log, i) => {
+                                        const isExpanded = expandedLogIndices.has(i);
+                                        const contentStr = typeof log.content === 'string'
+                                            ? log.content
+                                            : JSON.stringify(log.content, null, 2);
+                                        const isLong = contentStr.length > 200;
+                                        return (
+                                            <div key={i} style={{
+                                                padding: '8px 20px',
+                                                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                                fontSize: 12,
+                                            }}>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 10,
+                                                    marginBottom: 4,
+                                                }}>
+                                                    <span style={{
+                                                        fontSize: 10,
+                                                        color: 'var(--text-muted)',
+                                                        fontFamily: 'monospace',
+                                                        opacity: 0.6,
+                                                    }}>
+                                                        {new Date(log.timestamp).toLocaleTimeString('ja-JP')}
+                                                    </span>
+                                                    <span style={{
+                                                        fontWeight: 600,
+                                                        color: 'var(--text-secondary)',
+                                                    }}>
+                                                        {log.label}
+                                                    </span>
+                                                    {isLong && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setExpandedLogIndices(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (next.has(i)) next.delete(i);
+                                                                    else next.add(i);
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                            style={{
+                                                                fontSize: 10,
+                                                                padding: '2px 8px',
+                                                                borderRadius: 'var(--radius-sm)',
+                                                                background: 'rgba(255,255,255,0.05)',
+                                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                                color: 'var(--text-muted)',
+                                                                cursor: 'pointer',
+                                                                fontFamily: 'inherit',
+                                                            }}
+                                                        >
+                                                            {isExpanded ? '折りたたむ' : '展開する'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <pre style={{
+                                                    margin: 0,
+                                                    padding: '6px 10px',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    background: 'rgba(0,0,0,0.3)',
+                                                    color: 'var(--text-muted)',
+                                                    fontSize: 11,
+                                                    fontFamily: 'monospace',
+                                                    whiteSpace: 'pre-wrap',
+                                                    wordBreak: 'break-all',
+                                                    maxHeight: isLong && !isExpanded ? '120px' : 'none',
+                                                    overflow: 'hidden',
+                                                    position: 'relative' as const,
+                                                }}>
+                                                    {contentStr}
+                                                    {isLong && !isExpanded && (
+                                                        <div style={{
+                                                            position: 'absolute',
+                                                            bottom: 0,
+                                                            left: 0,
+                                                            right: 0,
+                                                            height: 40,
+                                                            background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+                                                        }} />
+                                                    )}
+                                                </pre>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -878,6 +1054,132 @@ export default function ResultsPage() {
                                 ← 新しい解析を開始する
                             </a>
                         </div>
+
+                        {/* Debug Log Panel */}
+                        {debugLogs.length > 0 && (
+                            <div ref={debugPanelRef} style={{
+                                marginTop: 48,
+                                borderRadius: 'var(--radius-lg)',
+                                border: '1px solid rgba(255,255,255,0.06)',
+                                background: 'rgba(0,0,0,0.3)',
+                                overflow: 'hidden',
+                            }}>
+                                <button
+                                    onClick={() => setDebugExpanded(!debugExpanded)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '14px 20px',
+                                        background: 'rgba(255,255,255,0.03)',
+                                        border: 'none',
+                                        borderBottom: debugExpanded ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 10,
+                                        fontFamily: 'inherit',
+                                        color: 'var(--text-muted)',
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    <span style={{ transform: debugExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
+                                    🔬 デバッグログ ({debugLogs.length}件)
+                                    <span style={{ fontSize: 11, fontWeight: 400, marginLeft: 'auto' }}>
+                                        データフローの全記録
+                                    </span>
+                                </button>
+                                {debugExpanded && (
+                                    <div style={{ maxHeight: '70vh', overflowY: 'auto', padding: '8px 0' }}>
+                                        {debugLogs.map((log, i) => {
+                                            const isExpanded = expandedLogIndices.has(i);
+                                            const contentStr = typeof log.content === 'string'
+                                                ? log.content
+                                                : JSON.stringify(log.content, null, 2);
+                                            const isLong = contentStr.length > 200;
+                                            return (
+                                                <div key={i} style={{
+                                                    padding: '8px 20px',
+                                                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                                    fontSize: 12,
+                                                }}>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 10,
+                                                        marginBottom: 4,
+                                                    }}>
+                                                        <span style={{
+                                                            fontSize: 10,
+                                                            color: 'var(--text-muted)',
+                                                            fontFamily: 'monospace',
+                                                            opacity: 0.6,
+                                                        }}>
+                                                            {new Date(log.timestamp).toLocaleTimeString('ja-JP')}
+                                                        </span>
+                                                        <span style={{
+                                                            fontWeight: 600,
+                                                            color: 'var(--text-secondary)',
+                                                        }}>
+                                                            {log.label}
+                                                        </span>
+                                                        {isLong && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setExpandedLogIndices(prev => {
+                                                                        const next = new Set(prev);
+                                                                        if (next.has(i)) next.delete(i);
+                                                                        else next.add(i);
+                                                                        return next;
+                                                                    });
+                                                                }}
+                                                                style={{
+                                                                    fontSize: 10,
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: 'var(--radius-sm)',
+                                                                    background: 'rgba(255,255,255,0.05)',
+                                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                                    color: 'var(--text-muted)',
+                                                                    cursor: 'pointer',
+                                                                    fontFamily: 'inherit',
+                                                                }}
+                                                            >
+                                                                {isExpanded ? '折りたたむ' : '展開する'}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <pre style={{
+                                                        margin: 0,
+                                                        padding: '6px 10px',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        background: 'rgba(0,0,0,0.3)',
+                                                        color: 'var(--text-muted)',
+                                                        fontSize: 11,
+                                                        fontFamily: 'monospace',
+                                                        whiteSpace: 'pre-wrap',
+                                                        wordBreak: 'break-all',
+                                                        maxHeight: isLong && !isExpanded ? '120px' : 'none',
+                                                        overflow: 'hidden',
+                                                        position: 'relative' as const,
+                                                    }}>
+                                                        {contentStr}
+                                                        {isLong && !isExpanded && (
+                                                            <div style={{
+                                                                position: 'absolute',
+                                                                bottom: 0,
+                                                                left: 0,
+                                                                right: 0,
+                                                                height: 40,
+                                                                background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+                                                            }} />
+                                                        )}
+                                                    </pre>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </>
                 )
             }

@@ -39,16 +39,24 @@ const SEARCH_ANGLES = [
     template: `「{{productName}}」（{{category}}）の意外な使い方、裏技、シンデレラフィット、便利な活用法についてSNSやブログでの声を調査してください。「こんな使い方があったのか」という発見系の投稿を重点的に探してください。日本語で回答してください。`,
   },
   {
-    label: 'ネガティブ・不満系',
-    template: `「{{productName}}」（{{category}}）に対する不満、問題点、改善してほしい点、期待はずれだった声をSNSやレビューサイトから調査してください。「仕方なく使っている」「もっとこうしてほしい」という諦めの声を重点的に探してください。日本語で回答してください。`,
+    label: 'ネガティブ・不満・失敗',
+    template: `「{{productName}}」（{{category}}）に対する不満、失敗談、がっかりした声、「使えない」「微妙」「期待はずれ」「すぐ壊れた」「買って後悔」という声をレビューサイト・口コミ・掲示板・SNSから調査してください。「仕方なく使っている」「もっとこうしてほしい」という諦めの声も含めてください。日本語で回答してください。`,
   },
   {
-    label: 'SNS話題・バズ',
-    template: `「{{productName}}」（{{category}}）がSNSで話題になった投稿、バズった使い方、おすすめ情報を調査してください。Twitter/X、Instagram、TikTok等での生活者の声を探してください。日本語で回答してください。`,
+    label: '掲示板・Q&A・リアルな不満',
+    template: `「{{productName}}」（{{category}}）について、Yahoo知恵袋、5ちゃんねる、Reddit、価格.comの掲示板など、匿名の本音が出やすい場所での生活者の声を調査してください。特に「{{productName}} 最悪」「{{productName}} ダメ」「{{productName}} 使えない」「{{productName}} 品質」といった不満や本音の声を重点的に探してください。日本語で回答してください。`,
+  },
+  {
+    label: 'SNS・リアルタイム検索・呟き',
+    template: `「{{productName}}」（{{category}}）に関するSNSの呟きやリアルタイムの声を調査してください。Yahoo!リアルタイム検索（search.yahoo.co.jp/realtime）やTwitter/Xで「{{productName}}」について投稿されている生の声を探してください。ポジティブ・ネガティブ両方、特に「{{productName}} 行ってきた」「{{productName}} 最悪」「{{productName}} おすすめ」「{{productName}} がっかり」「{{productName}} 美味しい」「{{productName}} まずい」といったリアルな呟きを探してください。日本語で回答してください。`,
   },
   {
     label: '市場・比較・トレンド',
     template: `「{{category}}」の市場トレンド、「{{productName}}」と競合との比較、業界に対する生活者の認識やトレンドの変化を調査してください。日本語で回答してください。`,
+  },
+  {
+    label: '妥協・諦め・仕方なく使っている声',
+    template: `「{{productName}}」（{{category}}）を仕方なく使っている、本当は別のものが良いけどコスパで選んでいる、品質に不安があるが我慢している、という「妥協の声」を調査してください。「安かろう悪かろう」「値段相応」「壊れても買い直せばいい」といった諦めの感覚を探してください。日本語で回答してください。`,
   },
 ];
 
@@ -75,14 +83,34 @@ export const DEFAULT_PHASE1_TEMPLATE = `【Phase 1: Deep Listening & Insight —
 あなたのタスク:
 以下の複数の検索結果データを分析し、生活者の声を抽出・整理してください。
 
-1. **ポジティブ・ハック（Positive/Hack）**: メーカーの意図を超えた使い方、シンデレラフィット、攻略の悦び。生活者の生々しい一人称の言葉で10個。
-2. **ネガティブ・ペイン（Negative/Pain）**: 諦め、虚無感、仕方なく使っている感覚。生活者の生々しい一人称の言葉で10個。
+**⛔⛔⛔【最重要 — 絶対厳守】ファクトチェックルール ⛔⛔⛔**:
+- 声は **下記に添付されたソースデータに実際に書かれている内容** からのみ抽出すること
+- ソースに存在しない声を **絶対に** 創作・捏造しないこと（ハルシネーション厳禁）
+- 各声を出力する前に「この声はソースのどの部分に書いてあるか？」を自問すること。答えられないなら **その声は出力しない**
+- **0個でも構わない** — 存在しない声を作るより、空配列 [] を返す方がはるかに良い
+- **ソースの多様性**: できる限り複数の異なるソースから抽出すること。ただし、1つのソースにしか該当する声がない場合は、そのソースから複数抽出してよい
+
+⚠️ **声の出力は後工程で機械的にソースデータと照合されます。ソースに存在しない声は自動削除されます。**
+
+**⛔ 出典URL — 絶対禁止事項 ⛔**:
+- **URLを自分で生成・推測・創作することを絶対に禁止する**
+- sourceUrl には **下記の「出典URLリスト」に掲載されているURL** のみを使用すること
+- リストにないURLを1つでも出力した場合、全体が無効になる
+- 声の内容と明確に対応するソースがない場合は、sourceUrl を **空文字 ""** にすること
+- sourceTitle もソースから取得した実際のサイト名のみを使用すること（サイト名の創作も禁止）
+
+1. **ポジティブ・ハック（Positive/Hack）**: メーカーの意図を超えた使い方、シンデレラフィット、攻略の悦び。ソースの直接引用または忠実な要約で**0〜10個**。
+2. **ネガティブ・ペイン（Negative/Pain）**: 諦め、虚無感、不満。ソースの直接引用または忠実な要約で**0〜10個**。ネガティブがソースに見つからない場合は空配列 [] を返すこと。
 3. **市場の再定義（Market Redefinition）**: 「現在の市場は『〇〇』という認識だが、実態は『△△』で動いている」という最短の定義文。
 
-**出典URLの指定ルール**:
-- 下部の「ソース別テキストセグメント」を参照し、各声の内容に最も関連するセグメントのsourceUrlを使用すること
-- 「出典URLリスト」に掲載されているURLのみを使用すること（自分でURLを生成・推測しないこと）
-- 声の内容と明確に対応するソースがない場合は、sourceUrl を空文字 "" にすること（無理にURLを付けないこと）
+**ネガティブ判定の重要ルール（フリ→オチ判定）**:
+- ネガティブなフリ（前置き）があっても、結論が「{{productName}}が解決してくれた」等のポジティブなオチなら、それは**ポジティブ**に分類すること
+- ネガティブとは、{{productName}}自体に対する不満・問題・改善要望であること
+
+**対象帰属の検証ルール（ターゲット検証）**:
+- 各声が本当に **{{productName}}** についての声であることを確認すること
+- 別ブランド・別商品への感想を {{productName}} の声として含めないこと
+- 「業界全般」への感想ではなく、{{productName}} 固有の声を優先すること
 
 以下のJSON形式で出力してください:
 {
@@ -100,14 +128,34 @@ export const DEEP_RESEARCH_PHASE1_TEMPLATE = `【Phase 1: Deep Listening & Insig
 あなたのタスク:
 提供された複数のWebページの実際のコンテンツを詳細に分析し、生活者の声を抽出してください。
 
-1. **ポジティブ・ハック（Positive/Hack）**: メーカーの意図を超えた使い方、シンデレラフィット、攻略の悦び。生活者の生々しい一人称の言葉で10個。
-2. **ネガティブ・ペイン（Negative/Pain）**: 諦め、虚無感、仕方なく使っている感覚。生活者の生々しい一人称の言葉で10個。
+**⛔⛔⛔【最重要 — 絶対厳守】ファクトチェックルール ⛔⛔⛔**:
+- 声は **下記に添付されたWebページの内容に実際に書かれている内容** からのみ抽出すること
+- ソースに存在しない声を **絶対に** 創作・捏造しないこと（ハルシネーション厳禁）
+- 各声を出力する前に「この声はソースのどの部分に書いてあるか？」を自問すること。答えられないなら **その声は出力しない**
+- **0個でも構わない** — 存在しない声を作るより、空配列 [] を返す方がはるかに良い
+- **ソースの多様性**: 1つの記事から最大3個まで。特定の1サイトに偏らないこと
+
+⚠️ **声の出力は後工程で機械的にソースデータと照合されます。ソースに存在しない声は自動削除されます。**
+
+**⛔ 出典URL — 絶対禁止事項 ⛔**:
+- **URLを自分で生成・推測・創作することを絶対に禁止する**
+- sourceUrl には **【読み込み対象URL一覧】に含まれるURL** のみを使用すること
+- リストにないURLを1つでも出力した場合、全体が無効になる
+- 声の内容と明確に対応するページがない場合は sourceUrl を **空文字 ""** にすること
+- sourceTitle もそのページの名前を簡潔に記載すること（サイト名の創作も禁止）
+
+1. **ポジティブ・ハック（Positive/Hack）**: メーカーの意図を超えた使い方、シンデレラフィット、攻略の悦び。ソースの直接引用または忠実な要約で**0〜10個**。
+2. **ネガティブ・ペイン（Negative/Pain）**: 諦め、虚無感、不満。ソースの直接引用または忠実な要約で**0〜10個**。ネガティブがソースに見つからない場合は空配列 [] を返すこと。
 3. **市場の再定義（Market Redefinition）**: 「現在の市場は『〇〇』という認識だが、実態は『△△』で動いている」という最短の定義文。
 
-**出典URLの指定ルール（最重要）**:
-- 各声には実際にその情報が掲載されているページのURLを sourceUrl に設定すること
-- URLは読み込み対象URL一覧に含まれるURLのみを使用すること
-- 声の内容と明確に対応するページがない場合は sourceUrl を空文字 "" にすること
+**ネガティブ判定の重要ルール（フリ→オチ判定）**:
+- ネガティブなフリ（前置き）があっても、結論が「{{productName}}が解決してくれた」等のポジティブなオチなら、それは**ポジティブ**に分類すること
+- ネガティブとは、{{productName}}自体に対する不満・問題・改善要望であること
+
+**対象帰属の検証ルール（ターゲット検証）**:
+- 各声が本当に **{{productName}}** についての声であることを確認すること
+- 別ブランド・別商品への感想を {{productName}} の声として含めないこと
+- 「業界全般」への感想ではなく、{{productName}} 固有の声を優先すること
 
 以下のJSON形式で出力してください:
 {
@@ -382,5 +430,87 @@ export function buildPhase4cPrompt(
     productName: input.productName,
     category: input.category,
     socialLanguages,
+  });
+}
+
+// ── Manual Deep Research Prompts ──
+
+/**
+ * Generate a prompt for the user to copy into an external Deep Research tool
+ * (Gemini App, Perplexity, Felo, ChatGPT, etc.)
+ */
+export function buildManualResearchPrompt(input: PrismInput): string {
+  return `以下の商材について、消費者・生活者のリアルな声を徹底的にリサーチしてください。
+
+【対象商材】${input.productName}
+【カテゴリ】${input.category}
+【現状の課題・特徴】${input.challenges}
+
+【リサーチ指示】
+1. **ポジティブな声**: レビューサイト、ブログ、SNS（X/Twitter）、YouTube等から「${input.productName}」の良い評判、おすすめの声、意外な使い方、シンデレラフィットを探してください。
+2. **ネガティブな声**: 「${input.productName}」への不満、失敗談、がっかりした声、改善してほしい点を探してください。掲示板（Yahoo知恵袋、5ちゃんねる等）やSNSの本音の呟きも含めてください。
+3. **妥協・諦めの声**: 「仕方なく使っている」「値段相応」「他に選択肢がない」といった消極的な声も探してください。
+4. **市場の認識**: 「${input.category}」市場に対する生活者の一般的な認識と、実態とのギャップがあれば報告してください。
+
+【出力形式】
+各声について以下を含めてください：
+- 声の内容（できるだけ原文に近い形で）
+- 出典URL（わかる場合）
+- 出典サイト名
+
+できるだけ多くの異なるソースから声を集めてください。ネガティブな声も重要です。`;
+}
+
+/**
+ * Build Phase 1 prompt that analyzes user-pasted manual research data.
+ */
+export function buildManualPhase1Prompt(input: PrismInput, template?: string): string {
+  const tpl = template || DEFAULT_PHASE1_TEMPLATE;
+  return fillTemplate(tpl, {
+    productName: input.productName,
+    category: input.category,
+    challenges: input.challenges,
+  });
+}
+
+// ── API Deep Research (Interactions API) Prompts ──
+
+/**
+ * Generate the prompt sent to the Gemini Deep Research Agent
+ * (via Interactions API). This prompt instructs the agent to do
+ * autonomous multi-step research.
+ */
+export function buildApiDeepResearchPrompt(input: PrismInput): string {
+  return `以下の商材について、消費者・生活者のリアルな声を徹底的にリサーチしてください。
+
+【対象商材】${input.productName}
+【カテゴリ】${input.category}
+【現状の課題・特徴】${input.challenges}
+
+【リサーチ指示】
+以下の観点で、できるだけ多くの異なるソースから声を収集してください:
+
+1. **ポジティブな声・意外な使い方**: レビューサイト、ブログ、SNS、YouTubeから「${input.productName}」の良い評判、おすすめの声、シンデレラフィット、裏技的な使い方
+2. **ネガティブな声・不満・失敗談**: 「${input.productName}」への不満、がっかり、「使えない」「微妙」「買って後悔」。掲示板（Yahoo知恵袋、5ちゃんねる、価格.com）やSNSの本音
+3. **妥協・諦めの声**: 「仕方なく使っている」「値段相応」「他に選択肢がない」という消極的な声
+4. **市場の認識**: 「${input.category}」市場に対する一般的な認識と実態のギャップ
+
+【重要な注意事項】
+- 各声について、出典URL（わかる場合）と出典サイト名を明記すること
+- ネガティブな声も同等に重要。ポジティブ偏重にならないこと
+- 実際のユーザーの言葉をできるだけ原文に近い形で引用すること
+- 日本語で回答してください`;
+}
+
+/**
+ * Build Phase 1 prompt that structures API Deep Research results
+ * into the PRISM Phase 1 format.
+ */
+export function buildApiDeepResearchPhase1Prompt(input: PrismInput, template?: string): string {
+  const tpl = template || DEFAULT_PHASE1_TEMPLATE;
+  return fillTemplate(tpl, {
+    productName: input.productName,
+    category: input.category,
+    challenges: input.challenges,
   });
 }

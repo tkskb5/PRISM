@@ -257,6 +257,7 @@ export async function deepResearchContent(
     // Step 1: Multi-angle grounding to discover URLs
     onProgress?.('Step 1/2: 複数角度からGoogle検索中...');
     const multiResult = await multiGroundedResearch(searchQueries, modelId, systemPrompt);
+    console.log(`[Deep Research] Step 1 completed: ${multiResult.allSources.length} sources from grounding`);
     onProgress?.(`Step 1完了: ${multiResult.allSources.length}件のソースを発見`);
 
     // Step 2: Use URL Context Tool to deeply read discovered pages
@@ -269,7 +270,8 @@ export async function deepResearchContent(
     const deepPrompt = `${analysisPrompt}
 
 以下のURLの内容を深く読み込み、生活者のリアルな声を抽出・分析してください。
-各声には必ず出典ページのURLを正確に紐づけてください。
+重要：声はページに実際に書かれている内容からのみ抽出すること。ページに存在しない声を創作しないこと。
+各声にはその内容が掲載されているページのURLを正確に紐づけてください。
 
 【読み込み対象URL一覧】
 ${urlList}
@@ -305,9 +307,95 @@ ${multiResult.combinedText}`;
     }
 
     const allSources = [...multiResult.allSources, ...additionalSources];
+    console.log(`[Deep Research] Step 2 completed: ${additionalSources.length} additional sources from URL context, total: ${allSources.length}`);
 
     return {
         combinedText: deepResponse.text ?? '',
         allSources,
     };
+}
+
+// ── Interactions API: Deep Research Agent ──
+
+/** Result from Interactions API Deep Research */
+export interface InteractionsDeepResearchResult {
+    /** Full research report text */
+    reportText: string;
+    /** Thought summaries captured during research */
+    thoughtSummaries: string[];
+}
+
+/**
+ * Execute a Deep Research task using the Gemini Interactions API.
+ * Uses the deep-research-pro-preview-12-2025 agent with streaming.
+ *
+ * Note: This is a long-running operation (3-15 minutes).
+ * Progress is reported via onProgress callback.
+ */
+export async function interactionsDeepResearch(
+    prompt: string,
+    onProgress?: (message: string) => void,
+): Promise<InteractionsDeepResearchResult> {
+    const client = getClient();
+
+    onProgress?.('Deep Research Agent を起動中...');
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const stream = await (client as any).interactions.create({
+        input: prompt,
+        agent: 'deep-research-pro-preview-12-2025',
+        background: true,
+        stream: true,
+        agent_config: {
+            type: 'deep-research',
+            thinking_summaries: 'auto',
+        },
+    });
+
+    let reportText = '';
+    const thoughtSummaries: string[] = [];
+    let interactionId: string | undefined;
+
+    for await (const chunk of stream) {
+        // Capture interaction ID
+        if (chunk.event_type === 'interaction.start') {
+            interactionId = chunk.interaction?.id;
+            console.log(`[Interactions API] Deep Research started: ${interactionId}`);
+            onProgress?.('Deep Research Agent がリサーチを開始しました...');
+        }
+
+        // Handle content deltas
+        if (chunk.event_type === 'content.delta') {
+            if (chunk.delta?.type === 'text') {
+                reportText += chunk.delta.text;
+            } else if (chunk.delta?.type === 'thought_summary') {
+                const thought = chunk.delta.content?.text || chunk.delta.text || '';
+                if (thought) {
+                    thoughtSummaries.push(thought);
+                    onProgress?.(`🔍 ${thought}`);
+                }
+            }
+        }
+
+        // Research complete
+        if (chunk.event_type === 'interaction.complete') {
+            console.log(`[Interactions API] Deep Research completed: ${interactionId}`);
+            onProgress?.('Deep Research Agent がリサーチを完了しました');
+        }
+
+        // Handle failure
+        if (chunk.event_type === 'interaction.failed') {
+            const error = chunk.interaction?.error || 'Unknown error';
+            console.error(`[Interactions API] Deep Research failed: ${error}`);
+            throw new Error(`Deep Research failed: ${error}`);
+        }
+    }
+
+    if (!reportText) {
+        throw new Error('Deep Research returned empty result');
+    }
+
+    console.log(`[Interactions API] Report length: ${reportText.length} chars, ${thoughtSummaries.length} thought summaries`);
+
+    return { reportText, thoughtSummaries };
 }
