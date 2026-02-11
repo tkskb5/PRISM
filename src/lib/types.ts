@@ -17,12 +17,16 @@ export interface GroundingSegment {
 /** 利用可能なGeminiモデル */
 export type GeminiModel = 'gemini-3-flash-preview' | 'gemini-3-pro-preview';
 
+/** リサーチ深度 */
+export type ResearchDepth = 'standard' | 'deep';
+
 /** コンサルタントからの入力 */
 export interface PrismInput {
     productName: string;
     category: string;
     challenges: string;
     model?: GeminiModel;
+    researchDepth?: ResearchDepth;
 }
 
 /** Phase 1: 個別の声（出典URL付き） */

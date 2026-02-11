@@ -2,7 +2,7 @@
 // PRISM — Analysis API Route (SSE Streaming)
 // ============================================================
 
-import { generateJSON, multiGroundedResearch } from '@/lib/gemini';
+import { generateJSON, multiGroundedResearch, deepResearchContent } from '@/lib/gemini';
 import {
     buildPhase1Prompt,
     buildPhase2Prompt,
@@ -12,11 +12,13 @@ import {
     buildPhase4bPrompt,
     buildPhase4cPrompt,
     buildMultiGroundingPrompts,
+    buildDeepResearchPhase1Prompt,
     DEFAULT_SYSTEM_PROMPT,
 } from '@/lib/prompts';
 import type {
     PrismInput,
     GeminiModel,
+    ResearchDepth,
     CustomPrompts,
     DeepListeningResult,
     SocialLanguage,
@@ -62,6 +64,7 @@ export async function POST(request: Request) {
     const modelId: GeminiModel = VALID_MODELS.includes(input.model as GeminiModel)
         ? (input.model as GeminiModel)
         : 'gemini-3-flash-preview';
+    const researchDepth: ResearchDepth = input.researchDepth === 'deep' ? 'deep' : 'standard';
 
     const systemPrompt = prompts?.systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
@@ -75,37 +78,72 @@ export async function POST(request: Request) {
             try {
                 // ────────────────────────────────────────────
                 // Phase 1: Deep Listening & Insight (~18%)
-                //   Step 1: Google Search grounded research
-                //   Step 2: Structure into JSON
+                //   Standard: multi-angle grounding + JSON structuring
+                //   Deep Research: grounding + URL Context for full page reading
                 // ────────────────────────────────────────────
-                send({ type: 'progress', phase: 1, percent: 2, message: 'Phase 1: 5つの角度からGoogle検索で生活者のリアルな声を調査中...' });
+                let phase1: DeepListeningResult;
+                let groundingSources: { title: string; url: string }[] = [];
 
-                // Step 1: Multi-angle grounded research — 5 parallel searches
-                const groundingPrompts = buildMultiGroundingPrompts(input);
-                const multiResult = await multiGroundedResearch(groundingPrompts, modelId, systemPrompt);
+                if (researchDepth === 'deep') {
+                    // ── Deep Research Mode ──
+                    send({ type: 'progress', phase: 1, percent: 2, message: 'Phase 1 [Deep]: 5角度のGoogle検索でソースを探索中...' });
 
-                send({ type: 'progress', phase: 1, percent: 10, message: `Phase 1: ${multiResult.allSources.length}件のソースから声を分析・構造化中...` });
+                    const groundingPrompts = buildMultiGroundingPrompts(input);
+                    const analysisPrompt = buildDeepResearchPhase1Prompt(input, prompts?.phase1Template);
 
-                // Step 2: Structure the grounded data into JSON
-                // Build segment-based source references for accurate attribution
-                const segmentRef = multiResult.allSegments
-                    .map((seg, i) => {
-                        const srcInfo = seg.sources.map(s => `${s.title} (${s.url})`).join(', ');
-                        return `[セグメント${i + 1}] ${seg.text.substring(0, 200)}...\n  → 出典: ${srcInfo}`;
-                    })
-                    .join('\n\n');
-                const sourceRefList = multiResult.allSources
-                    .map((src, i) => `[${i + 1}] ${src.title} — ${src.url}`)
-                    .join('\n');
+                    const deepResult = await deepResearchContent(
+                        groundingPrompts,
+                        analysisPrompt,
+                        modelId,
+                        systemPrompt,
+                        (msg) => send({ type: 'progress', phase: 1, percent: 8, message: `Phase 1 [Deep]: ${msg}` }),
+                    );
 
-                const phase1Prompt = buildPhase1Prompt(input, prompts?.phase1Template)
-                    + `\n\n【参考: Google検索による実際の生活者の声（5つの検索角度から収集）】\n${multiResult.combinedText}`
-                    + `\n\n【ソース別テキストセグメント（各声のsourceUrl指定に使用）】\n${segmentRef}`
-                    + `\n\n【出典URLリスト（sourceUrlにはこのリストのURLのみを使用すること）】\n${sourceRefList}`;
-                const phase1 = await generateJSON<DeepListeningResult>(phase1Prompt, modelId, systemPrompt);
+                    groundingSources = deepResult.allSources;
+                    send({ type: 'progress', phase: 1, percent: 14, message: `Phase 1 [Deep]: ${groundingSources.length}件のソースからJSON構造化中...` });
 
-                send({ type: 'progress', phase: 1, percent: 18, message: 'Phase 1: Deep Listening 完了 ✓' });
-                send({ type: 'phase_result', phase: 1, data: phase1, groundingSources: multiResult.allSources });
+                    // deepResearchContent already returns JSON-formatted text via responseMimeType
+                    try {
+                        phase1 = JSON.parse(deepResult.combinedText);
+                    } catch {
+                        // Fallback: if URL Context response isn't valid JSON, re-generate
+                        const sourceRefList = groundingSources
+                            .map((src, i) => `[${i + 1}] ${src.title} — ${src.url}`)
+                            .join('\n');
+                        const fallbackPrompt = buildDeepResearchPhase1Prompt(input)
+                            + `\n\n【Webページ分析結果】\n${deepResult.combinedText}`
+                            + `\n\n【出典URLリスト】\n${sourceRefList}`;
+                        phase1 = await generateJSON<DeepListeningResult>(fallbackPrompt, modelId, systemPrompt);
+                    }
+                } else {
+                    // ── Standard Mode ──
+                    send({ type: 'progress', phase: 1, percent: 2, message: 'Phase 1: 5つの角度からGoogle検索で生活者のリアルな声を調査中...' });
+
+                    const groundingPrompts = buildMultiGroundingPrompts(input);
+                    const multiResult = await multiGroundedResearch(groundingPrompts, modelId, systemPrompt);
+
+                    groundingSources = multiResult.allSources;
+                    send({ type: 'progress', phase: 1, percent: 10, message: `Phase 1: ${groundingSources.length}件のソースから声を分析・構造化中...` });
+
+                    const segmentRef = multiResult.allSegments
+                        .map((seg, i) => {
+                            const srcInfo = seg.sources.map(s => `${s.title} (${s.url})`).join(', ');
+                            return `[セグメント${i + 1}] ${seg.text.substring(0, 200)}...\n  → 出典: ${srcInfo}`;
+                        })
+                        .join('\n\n');
+                    const sourceRefList = groundingSources
+                        .map((src, i) => `[${i + 1}] ${src.title} — ${src.url}`)
+                        .join('\n');
+
+                    const phase1Prompt = buildPhase1Prompt(input, prompts?.phase1Template)
+                        + `\n\n【参考: Google検索による実際の生活者の声（5つの検索角度から収集）】\n${multiResult.combinedText}`
+                        + `\n\n【ソース別テキストセグメント（各声のsourceUrl指定に使用）】\n${segmentRef}`
+                        + `\n\n【出典URLリスト（sourceUrlにはこのリストのURLのみを使用すること）】\n${sourceRefList}`;
+                    phase1 = await generateJSON<DeepListeningResult>(phase1Prompt, modelId, systemPrompt);
+                }
+
+                send({ type: 'progress', phase: 1, percent: 18, message: `Phase 1: Deep Listening 完了 ✓${researchDepth === 'deep' ? ' [Deep Research]' : ''}` });
+                send({ type: 'phase_result', phase: 1, data: phase1, groundingSources });
 
                 const phase1Summary = `ポジティブ・ハック:\n${phase1.positiveHacks.map((h) => `- ${typeof h === 'string' ? h : h.text}`).join('\n')}\n\nネガティブ・ペイン:\n${phase1.negativePains.map((p) => `- ${typeof p === 'string' ? p : p.text}`).join('\n')}\n\n市場の再定義: ${phase1.marketRedefinition}`;
 
@@ -196,7 +234,7 @@ export async function POST(request: Request) {
                         phase2,
                         phase3,
                         phase4,
-                        groundingSources: multiResult.allSources,
+                        groundingSources,
                     },
                 });
             } catch (error) {

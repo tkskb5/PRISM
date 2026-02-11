@@ -113,6 +113,39 @@ export const DEFAULT_PHASE1_TEMPLATE = `【Phase 1: Deep Listening & Insight —
   "marketRedefinition": "定義文"
 }`;
 
+export const DEEP_RESEARCH_PHASE1_TEMPLATE = `【Phase 1: Deep Listening & Insight — Deep Research モード】
+
+対象商材: {{productName}}
+カテゴリ: {{category}}
+現状の課題・特徴: {{challenges}}
+
+あなたのタスク:
+提供された複数のWebページの実際のコンテンツを詳細に分析し、生活者の声を抽出してください。
+
+1. **ポジティブ・ハック（Positive/Hack）**: メーカーの意図を超えた使い方、シンデレラフィット、攻略の悦び。生活者の生々しい一人称の言葉で10個。
+2. **ネガティブ・ペイン（Negative/Pain）**: 諦め、虚無感、仕方なく使っている感覚。生活者の生々しい一人称の言葉で10個。
+3. **市場の再定義（Market Redefinition）**: 「現在の市場は『〇〇』という認識だが、実態は『△△』で動いている」という最短の定義文。
+
+**出典URLの指定ルール（最重要）**:
+- 各声には実際にその情報が掲載されているページのURLを sourceUrl に設定すること
+- URLは読み込み対象URL一覧に含まれるURLのみを使用すること
+- 声の内容と明確に対応するページがない場合は sourceUrl を空文字 "" にすること
+
+以下のJSON形式で出力してください:
+{
+  "positiveHacks": [{"text": "声1", "sourceUrl": "https://...", "sourceTitle": "サイト名"}, ...],
+  "negativePains": [{"text": "声1", "sourceUrl": "https://...", "sourceTitle": "サイト名"}, ...],
+  "marketRedefinition": "定義文"
+}`;
+
+export function buildDeepResearchPhase1Prompt(input: PrismInput, template?: string): string {
+  return fillTemplate(template || DEEP_RESEARCH_PHASE1_TEMPLATE, {
+    productName: input.productName,
+    category: input.category,
+    challenges: input.challenges,
+  });
+}
+
 export const DEFAULT_PHASE2_TEMPLATE = `【Phase 2: Social Language Development — 社会言語開発】
 
 対象商材: {{productName}}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { GeminiModel } from '@/lib/types';
+import type { GeminiModel, ResearchDepth } from '@/lib/types';
 
 const CATEGORY_EXAMPLES = [
   '100円ショップ', '軽トラ', '生命保険', '事務用品', '中古家電',
@@ -15,6 +15,7 @@ export default function HomePage() {
   const [category, setCategory] = useState('');
   const [challenges, setChallenges] = useState('');
   const [model, setModel] = useState<GeminiModel>('gemini-3-flash-preview');
+  const [researchDepth, setResearchDepth] = useState<ResearchDepth>('standard');
   const [isLoading, setIsLoading] = useState(false);
 
   const isValid = productName.trim() && category.trim() && challenges.trim();
@@ -26,7 +27,7 @@ export default function HomePage() {
     setIsLoading(true);
 
     // Store input and navigate to results page
-    const input = { productName, category, challenges, model };
+    const input = { productName, category, challenges, model, researchDepth };
     sessionStorage.setItem('prism-input', JSON.stringify(input));
     router.push('/results');
   }
@@ -313,6 +314,89 @@ export default function HomePage() {
                       <span>⏱ {m.time}</span>
                       <span>💰 {m.cost}/回</span>
                     </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Research Depth */}
+          <div style={{ marginBottom: 32 }}>
+            <label style={{
+              display: 'block',
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              marginBottom: 12,
+            }}>
+              リサーチ深度
+            </label>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {[
+                {
+                  id: 'standard' as ResearchDepth,
+                  name: 'Standard',
+                  badge: '高速',
+                  badgeColor: 'var(--spectrum-cyan)',
+                  time: '約40秒',
+                  cost: '約2〜3円',
+                  desc: 'Google検索のサマリーから分析',
+                },
+                {
+                  id: 'deep' as ResearchDepth,
+                  name: 'Deep Research',
+                  badge: '高精度',
+                  badgeColor: 'var(--spectrum-green)',
+                  time: '約1〜2分',
+                  cost: '約5円',
+                  desc: '実際のWebページを読み込んで深く分析',
+                },
+              ].map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setResearchDepth(d.id)}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '14px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: researchDepth === d.id
+                      ? `1px solid ${d.badgeColor}`
+                      : '1px solid var(--border-subtle)',
+                    background: researchDepth === d.id
+                      ? `${d.badgeColor}10`
+                      : 'transparent',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {d.name}
+                    </span>
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: '2px 6px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: `${d.badgeColor}20`,
+                      color: d.badgeColor,
+                    }}>
+                      {d.badge}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {d.desc}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', gap: 10 }}>
+                    <span>⏱ {d.time}</span>
+                    <span>💰 {d.cost}/回</span>
                   </div>
                 </button>
               ))}
