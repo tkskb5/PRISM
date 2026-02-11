@@ -200,10 +200,16 @@ export default function ResultsPage() {
     useEffect(() => {
         const stored = sessionStorage.getItem('prism-input');
         if (stored) {
-            const parsed = JSON.parse(stored) as PrismInput;
-            setInput(parsed);
-            sessionStorage.removeItem('prism-input');
-            runAnalysis(parsed);
+            try {
+                const parsed = JSON.parse(stored) as PrismInput;
+                setInput(parsed);
+                sessionStorage.removeItem('prism-input');
+                runAnalysis(parsed);
+            } catch {
+                sessionStorage.removeItem('prism-input');
+                setError('入力データの読み込みに失敗しました。もう一度やり直してください。');
+                setPhase('error');
+            }
         }
     }, [runAnalysis]);
 

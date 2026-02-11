@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import type { CustomPrompts } from '@/lib/types';
 import { getCustomPrompts, saveCustomPrompts, resetCustomPrompts } from '@/lib/storage';
 import { getDefaultPrompts } from '@/lib/prompts';
+import { linkBtnStyle, dangerBtnStyle } from '@/lib/styles';
 
 const PROMPT_SECTIONS = [
     {
@@ -40,9 +41,8 @@ const PROMPT_SECTIONS = [
 ];
 
 export default function SettingsPage() {
-    const router = useRouter();
-    const defaults = getDefaultPrompts();
-    const [prompts, setPrompts] = useState<CustomPrompts>(defaults);
+    const defaults = useMemo(() => getDefaultPrompts(), []);
+    const [prompts, setPrompts] = useState<CustomPrompts>(getDefaultPrompts);
     const [saved, setSaved] = useState(false);
     const [expandedKey, setExpandedKey] = useState<string | null>(null);
     const [modified, setModified] = useState<Set<string>>(new Set());
@@ -116,13 +116,13 @@ export default function SettingsPage() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => router.push('/')} style={linkBtnStyle}>
+                    <Link href="/" style={linkBtnStyle}>
                         ← ホームに戻る
-                    </button>
+                    </Link>
                     {modified.size > 0 && (
                         <button
                             onClick={handleResetAll}
-                            style={{ ...linkBtnStyle, color: '#ff6b6b', borderColor: 'rgba(255,107,107,0.3)' }}
+                            style={dangerBtnStyle}
                         >
                             🔄 すべて初期値に戻す
                         </button>
@@ -270,19 +270,6 @@ export default function SettingsPage() {
         </div>
     );
 }
-
-// ── Shared styles ──
-const linkBtnStyle: React.CSSProperties = {
-    padding: '8px 16px',
-    borderRadius: 8,
-    fontSize: 13,
-    fontWeight: 600,
-    background: 'none',
-    border: '1px solid var(--border-subtle)',
-    color: 'var(--text-secondary)',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-};
 
 const codeStyle: React.CSSProperties = {
     padding: '2px 6px',

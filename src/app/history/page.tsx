@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import type { HistoryEntry } from '@/lib/types';
 import { getHistory, deleteHistoryEntry, clearHistory } from '@/lib/storage';
+import { linkBtnStyle, dangerBtnStyle, sectionStyle, sectionTitleStyle } from '@/lib/styles';
 
 export default function HistoryPage() {
-    const router = useRouter();
     const [entries, setEntries] = useState<HistoryEntry[]>([]);
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -46,13 +46,13 @@ export default function HistoryPage() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => router.push('/')} style={linkBtnStyle}>
+                    <Link href="/" style={linkBtnStyle}>
                         ← ホームに戻る
-                    </button>
+                    </Link>
                     {entries.length > 0 && (
                         <button
                             onClick={handleClearAll}
-                            style={{ ...linkBtnStyle, color: '#ff6b6b', borderColor: 'rgba(255,107,107,0.3)' }}
+                            style={dangerBtnStyle}
                         >
                             🗑 すべて削除
                         </button>
@@ -71,12 +71,12 @@ export default function HistoryPage() {
                 }}>
                     <p style={{ fontSize: 48, margin: '0 0 12px' }}>📭</p>
                     <p>まだ実行履歴がありません</p>
-                    <button
-                        onClick={() => router.push('/')}
+                    <Link
+                        href="/"
                         style={{ ...linkBtnStyle, marginTop: 16 }}
                     >
                         分析を始める →
-                    </button>
+                    </Link>
                 </div>
             )}
 
@@ -213,30 +213,3 @@ export default function HistoryPage() {
     );
 }
 
-// ── Shared styles ──
-const linkBtnStyle: React.CSSProperties = {
-    padding: '8px 16px',
-    borderRadius: 8,
-    fontSize: 13,
-    fontWeight: 600,
-    background: 'none',
-    border: '1px solid var(--border-subtle)',
-    color: 'var(--text-secondary)',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-};
-
-const sectionStyle: React.CSSProperties = {
-    marginTop: 16,
-    padding: '12px 16px',
-    borderRadius: 8,
-    background: 'rgba(255,255,255,0.02)',
-    border: '1px solid var(--border-subtle)',
-};
-
-const sectionTitleStyle: React.CSSProperties = {
-    fontSize: 13,
-    fontWeight: 700,
-    color: 'var(--text-primary)',
-    margin: '0 0 8px',
-};
