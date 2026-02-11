@@ -94,7 +94,7 @@ export async function POST(request: Request) {
                 send({ type: 'progress', phase: 1, percent: 18, message: 'Phase 1: Deep Listening 完了 ✓' });
                 send({ type: 'phase_result', phase: 1, data: phase1, groundingSources: groundedResult.sources });
 
-                const phase1Summary = `ポジティブ・ハック:\n${phase1.positiveHacks.map((h) => `- ${h}`).join('\n')}\n\nネガティブ・ペイン:\n${phase1.negativePains.map((p) => `- ${p}`).join('\n')}\n\n市場の再定義: ${phase1.marketRedefinition}`;
+                const phase1Summary = `ポジティブ・ハック:\n${phase1.positiveHacks.map((h) => `- ${typeof h === 'string' ? h : h.text}`).join('\n')}\n\nネガティブ・ペイン:\n${phase1.negativePains.map((p) => `- ${typeof p === 'string' ? p : p.text}`).join('\n')}\n\n市場の再定義: ${phase1.marketRedefinition}`;
 
                 // ────────────────────────────────────────────
                 // Phase 2: Social Language Development (~8%)

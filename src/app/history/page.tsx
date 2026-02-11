@@ -2,9 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import type { HistoryEntry } from '@/lib/types';
+import type { HistoryEntry, VoiceItem } from '@/lib/types';
 import { getHistory, deleteHistoryEntry, clearHistory } from '@/lib/storage';
 import { linkBtnStyle, dangerBtnStyle, sectionStyle, sectionTitleStyle } from '@/lib/styles';
+
+/** Backward compat: handle both string (legacy) and VoiceItem */
+function toVoiceItem(v: string | VoiceItem): VoiceItem {
+    return typeof v === 'string' ? { text: v } : v;
+}
 
 const subHeadStyle: React.CSSProperties = {
     fontSize: 13,
@@ -194,24 +199,46 @@ export default function HistoryPage() {
                                             <span style={{ color: 'var(--spectrum-cyan)' }}>●</span> Positive / Hack
                                         </p>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16 }}>
-                                            {entry.result.phase1.positiveHacks.map((v, i) => (
-                                                <div key={i} style={voiceStyle}>
-                                                    <span style={{ color: 'var(--spectrum-cyan)', flexShrink: 0 }}>❝</span>
-                                                    <span>{v}</span>
-                                                </div>
-                                            ))}
+                                            {entry.result.phase1.positiveHacks.map((v, i) => {
+                                                const item = toVoiceItem(v);
+                                                return (
+                                                    <div key={i} style={voiceStyle}>
+                                                        <span style={{ color: 'var(--spectrum-cyan)', flexShrink: 0 }}>❝</span>
+                                                        <div>
+                                                            <span>{item.text}</span>
+                                                            {item.sourceUrl && (
+                                                                <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer"
+                                                                    style={{ display: 'block', fontSize: 11, color: 'var(--spectrum-cyan)', textDecoration: 'none', marginTop: 2, opacity: 0.8 }}>
+                                                                    ↗ {item.sourceTitle || item.sourceUrl}
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
 
                                         <p style={subHeadStyle}>
                                             <span style={{ color: 'var(--spectrum-red)' }}>●</span> Negative / Pain
                                         </p>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16 }}>
-                                            {entry.result.phase1.negativePains.map((v, i) => (
-                                                <div key={i} style={voiceStyle}>
-                                                    <span style={{ color: 'var(--spectrum-red)', flexShrink: 0 }}>❝</span>
-                                                    <span>{v}</span>
-                                                </div>
-                                            ))}
+                                            {entry.result.phase1.negativePains.map((v, i) => {
+                                                const item = toVoiceItem(v);
+                                                return (
+                                                    <div key={i} style={voiceStyle}>
+                                                        <span style={{ color: 'var(--spectrum-red)', flexShrink: 0 }}>❝</span>
+                                                        <div>
+                                                            <span>{item.text}</span>
+                                                            {item.sourceUrl && (
+                                                                <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer"
+                                                                    style={{ display: 'block', fontSize: 11, color: 'var(--spectrum-red)', textDecoration: 'none', marginTop: 2, opacity: 0.8 }}>
+                                                                    ↗ {item.sourceTitle || item.sourceUrl}
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
 
                                         <p style={subHeadStyle}>▸ 市場の再定義</p>

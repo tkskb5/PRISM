@@ -63,10 +63,12 @@ export const DEFAULT_PHASE1_TEMPLATE = `【Phase 1: Deep Listening & Insight —
 2. **ネガティブ・ペイン（Negative/Pain）**: 諦め、虚無感、仕方なく使っている感覚。生活者の生々しい一人称の言葉で10個。
 3. **市場の再定義（Market Redefinition）**: 「現在の市場は『〇〇』という認識だが、実態は『△△』で動いている」という最短の定義文。
 
+**重要**: 各声には、その情報の出典となったWebページのURLとサイト名を含めてください。参考データに含まれるURLを活用してください。
+
 以下のJSON形式で出力してください:
 {
-  "positiveHacks": ["声1", "声2", ...],
-  "negativePains": ["声1", "声2", ...],
+  "positiveHacks": [{"text": "声1", "sourceUrl": "https://example.com/...", "sourceTitle": "サイト名"}, ...],
+  "negativePains": [{"text": "声1", "sourceUrl": "https://example.com/...", "sourceTitle": "サイト名"}, ...],
   "marketRedefinition": "定義文"
 }`;
 

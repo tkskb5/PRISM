@@ -19,10 +19,17 @@ export interface PrismInput {
     model?: GeminiModel;
 }
 
+/** Phase 1: 個別の声（出典URL付き） */
+export interface VoiceItem {
+    text: string;
+    sourceUrl?: string;
+    sourceTitle?: string;
+}
+
 /** Phase 1: Deep Listening の結果 */
 export interface DeepListeningResult {
-    positiveHacks: string[];
-    negativePains: string[];
+    positiveHacks: VoiceItem[];
+    negativePains: VoiceItem[];
     marketRedefinition: string;
 }
 

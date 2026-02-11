@@ -18,11 +18,19 @@ export function generateMarkdownReport(result: PrismResult): string {
 
 ### 生活者の生の声 (Positive / Hack)
 
-${phase1.positiveHacks.map((h) => `- ${h}`).join('\n')}
+${phase1.positiveHacks.map((h) => {
+        const text = typeof h === 'string' ? h : h.text;
+        const src = typeof h === 'string' ? '' : (h.sourceUrl ? ` ([出典](${h.sourceUrl}))` : '');
+        return `- ${text}${src}`;
+    }).join('\n')}
 
 ### 生活者の生の声 (Negative / Pain)
 
-${phase1.negativePains.map((p) => `- ${p}`).join('\n')}
+${phase1.negativePains.map((p) => {
+        const text = typeof p === 'string' ? p : p.text;
+        const src = typeof p === 'string' ? '' : (p.sourceUrl ? ` ([出典](${p.sourceUrl}))` : '');
+        return `- ${text}${src}`;
+    }).join('\n')}
 
 ### 市場の再定義
 

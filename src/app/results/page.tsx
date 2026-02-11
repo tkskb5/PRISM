@@ -9,7 +9,13 @@ import type {
     SocialLanguage,
     SurveyDesign,
     GroundingSource,
+    VoiceItem,
 } from '@/lib/types';
+
+/** Backward compat: handle both string (legacy) and VoiceItem */
+function toVoiceItem(v: string | VoiceItem): VoiceItem {
+    return typeof v === 'string' ? { text: v } : v;
+}
 import { generateMarkdownReport } from '@/lib/export';
 import { saveHistory, getCustomPrompts } from '@/lib/storage';
 
@@ -406,21 +412,43 @@ export default function ResultsPage() {
                                     </h4>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
                                         <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--spectrum-cyan)', marginBottom: 4 }}>Positive / Hack</p>
-                                        {partialPhase1.positiveHacks.map((v, i) => (
-                                            <div key={i} className="voice-item positive" style={{ padding: '10px 14px', fontSize: 13 }}>
-                                                <span style={{ color: 'var(--spectrum-cyan)', flexShrink: 0 }}>❝</span>
-                                                <span>{v}</span>
-                                            </div>
-                                        ))}
+                                        {partialPhase1.positiveHacks.map((v, i) => {
+                                            const item = toVoiceItem(v);
+                                            return (
+                                                <div key={i} className="voice-item positive" style={{ padding: '10px 14px', fontSize: 13 }}>
+                                                    <span style={{ color: 'var(--spectrum-cyan)', flexShrink: 0 }}>❝</span>
+                                                    <div>
+                                                        <span>{item.text}</span>
+                                                        {item.sourceUrl && (
+                                                            <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer"
+                                                                style={{ display: 'block', fontSize: 11, color: 'var(--spectrum-cyan)', textDecoration: 'none', marginTop: 4, opacity: 0.8 }}>
+                                                                ↗ {item.sourceTitle || item.sourceUrl}
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
                                         <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--spectrum-red)', marginBottom: 4 }}>Negative / Pain</p>
-                                        {partialPhase1.negativePains.map((v, i) => (
-                                            <div key={i} className="voice-item negative" style={{ padding: '10px 14px', fontSize: 13 }}>
-                                                <span style={{ color: 'var(--spectrum-red)', flexShrink: 0 }}>❝</span>
-                                                <span>{v}</span>
-                                            </div>
-                                        ))}
+                                        {partialPhase1.negativePains.map((v, i) => {
+                                            const item = toVoiceItem(v);
+                                            return (
+                                                <div key={i} className="voice-item negative" style={{ padding: '10px 14px', fontSize: 13 }}>
+                                                    <span style={{ color: 'var(--spectrum-red)', flexShrink: 0 }}>❝</span>
+                                                    <div>
+                                                        <span>{item.text}</span>
+                                                        {item.sourceUrl && (
+                                                            <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer"
+                                                                style={{ display: 'block', fontSize: 11, color: 'var(--spectrum-red)', textDecoration: 'none', marginTop: 4, opacity: 0.8 }}>
+                                                                ↗ {item.sourceTitle || item.sourceUrl}
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                     <div style={{ padding: '12px 16px', borderRadius: 8, background: 'rgba(255,204,51,0.05)', border: '1px solid rgba(255,204,51,0.15)' }}>
                                         <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--spectrum-yellow)', marginBottom: 6 }}>▸ 市場の再定義</p>
@@ -570,12 +598,23 @@ export default function ResultsPage() {
                                         Positive / Hack — 攻略の悦び
                                     </h3>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 36 }}>
-                                        {result.phase1.positiveHacks.map((voice, i) => (
-                                            <div key={i} className="voice-item positive">
-                                                <span style={{ color: 'var(--spectrum-cyan)', flexShrink: 0 }}>❝</span>
-                                                <span>{voice}</span>
-                                            </div>
-                                        ))}
+                                        {result.phase1.positiveHacks.map((voice, i) => {
+                                            const item = toVoiceItem(voice);
+                                            return (
+                                                <div key={i} className="voice-item positive">
+                                                    <span style={{ color: 'var(--spectrum-cyan)', flexShrink: 0 }}>❝</span>
+                                                    <div style={{ flex: 1 }}>
+                                                        <span>{item.text}</span>
+                                                        {item.sourceUrl && (
+                                                            <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer"
+                                                                style={{ display: 'block', fontSize: 11, color: 'var(--spectrum-cyan)', textDecoration: 'none', marginTop: 4, opacity: 0.8 }}>
+                                                                ↗ {item.sourceTitle || item.sourceUrl}
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
 
                                     <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -583,12 +622,23 @@ export default function ResultsPage() {
                                         Negative / Pain — 微細な不快
                                     </h3>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 36 }}>
-                                        {result.phase1.negativePains.map((voice, i) => (
-                                            <div key={i} className="voice-item negative">
-                                                <span style={{ color: 'var(--spectrum-red)', flexShrink: 0 }}>❝</span>
-                                                <span>{voice}</span>
-                                            </div>
-                                        ))}
+                                        {result.phase1.negativePains.map((voice, i) => {
+                                            const item = toVoiceItem(voice);
+                                            return (
+                                                <div key={i} className="voice-item negative">
+                                                    <span style={{ color: 'var(--spectrum-red)', flexShrink: 0 }}>❝</span>
+                                                    <div style={{ flex: 1 }}>
+                                                        <span>{item.text}</span>
+                                                        {item.sourceUrl && (
+                                                            <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer"
+                                                                style={{ display: 'block', fontSize: 11, color: 'var(--spectrum-red)', textDecoration: 'none', marginTop: 4, opacity: 0.8 }}>
+                                                                ↗ {item.sourceTitle || item.sourceUrl}
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
 
                                     <div className="spectrum-card" style={{ padding: 28 }}>
