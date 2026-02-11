@@ -153,22 +153,15 @@ export default function ResultsPage() {
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('listening');
     const [copied, setCopied] = useState(false);
+    const [percent, setPercent] = useState(0);
+    const [progressMsg, setProgressMsg] = useState('');
 
     const runAnalysis = useCallback(async (inputData: PrismInput) => {
         setPhase('phase1');
-
-        // Simulate phase progression every ~8s (actual API does all at once)
-        const phaseTimer = setInterval(() => {
-            setPhase((prev) => {
-                if (prev === 'phase1') return 'phase2';
-                if (prev === 'phase2') return 'phase3';
-                if (prev === 'phase3') return 'phase4';
-                return prev;
-            });
-        }, 8000);
+        setPercent(0);
+        setProgressMsg('分析を開始しています...');
 
         try {
-            // Load custom prompts from localStorage
             const customPrompts = getCustomPrompts();
 
             const res = await fetch('/api/analyze', {
@@ -177,21 +170,56 @@ export default function ResultsPage() {
                 body: JSON.stringify({ input: inputData, customPrompts }),
             });
 
-            clearInterval(phaseTimer);
-
             if (!res.ok) {
                 const data = await res.json();
                 throw new Error(data.error || 'Analysis failed');
             }
 
-            const data: PrismResult = await res.json();
-            setResult(data);
-            setPhase('complete');
+            const reader = res.body?.getReader();
+            if (!reader) throw new Error('ストリーミングに対応していません');
 
-            // Save to history
-            saveHistory(inputData, data);
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const event = JSON.parse(line.slice(6));
+
+                        if (event.type === 'progress') {
+                            setPercent(event.percent);
+                            setProgressMsg(event.message);
+                            // Update phase based on phase number
+                            const phaseMap: Record<number, AnalysisPhase> = {
+                                1: 'phase1', 2: 'phase2', 3: 'phase3', 4: 'phase4',
+                            };
+                            if (phaseMap[event.phase]) setPhase(phaseMap[event.phase]);
+                        } else if (event.type === 'result') {
+                            const data: PrismResult = event.data;
+                            setResult(data);
+                            setPhase('complete');
+                            setPercent(100);
+                            saveHistory(inputData, data);
+                        } else if (event.type === 'error') {
+                            throw new Error(event.error);
+                        }
+                    } catch (parseErr) {
+                        // Skip malformed SSE lines
+                        if (parseErr instanceof Error && parseErr.message !== 'Unexpected end of JSON input') {
+                            throw parseErr;
+                        }
+                    }
+                }
+            }
         } catch (err) {
-            clearInterval(phaseTimer);
             setError(err instanceof Error ? err.message : 'Unknown error');
             setPhase('error');
         }
@@ -288,7 +316,7 @@ export default function ResultsPage() {
                         })}
                     </div>
 
-                    {/* Current phase description */}
+                    {/* Percentage bar + message */}
                     <div style={{
                         textAlign: 'center',
                         marginTop: 32,
@@ -297,9 +325,40 @@ export default function ResultsPage() {
                         alignItems: 'center',
                         gap: 16,
                     }}>
-                        <div className="prism-loader" />
+                        {/* Percentage number */}
+                        <div style={{
+                            fontSize: 48,
+                            fontWeight: 800,
+                            fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                            background: 'linear-gradient(135deg, var(--spectrum-cyan), var(--spectrum-violet))',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            letterSpacing: '-0.02em',
+                        }}>
+                            {percent}%
+                        </div>
+
+                        {/* Progress bar */}
+                        <div style={{
+                            width: '100%',
+                            maxWidth: 400,
+                            height: 6,
+                            borderRadius: 3,
+                            background: 'rgba(255,255,255,0.06)',
+                            overflow: 'hidden',
+                        }}>
+                            <div style={{
+                                width: `${percent}%`,
+                                height: '100%',
+                                borderRadius: 3,
+                                background: 'linear-gradient(90deg, var(--spectrum-cyan), var(--spectrum-violet))',
+                                transition: 'width 0.6s ease-out',
+                            }} />
+                        </div>
+
+                        {/* Status message from server */}
                         <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-                            {currentPhaseIndex >= 0 ? PHASES[currentPhaseIndex].desc : '分析準備中...'}
+                            {progressMsg || (currentPhaseIndex >= 0 ? PHASES[currentPhaseIndex].desc : '分析準備中...')}
                         </p>
                     </div>
                 </div>
@@ -321,259 +380,262 @@ export default function ResultsPage() {
                         トップに戻る
                     </a>
                 </div>
-            )}
+            )
+            }
 
             {/* Results */}
-            {phase === 'complete' && result && (
-                <>
-                    {/* Success Header */}
-                    <div style={{ textAlign: 'center', marginBottom: 40 }}>
-                        <h2 className="prism-text" style={{
-                            fontSize: 28,
-                            fontWeight: 800,
-                            marginBottom: 8,
-                        }}>
-                            解析完了
-                        </h2>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-                            {result.input.productName}（{result.input.category}）の社会言語を開発しました
-                        </p>
-                    </div>
+            {
+                phase === 'complete' && result && (
+                    <>
+                        {/* Success Header */}
+                        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+                            <h2 className="prism-text" style={{
+                                fontSize: 28,
+                                fontWeight: 800,
+                                marginBottom: 8,
+                            }}>
+                                解析完了
+                            </h2>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
+                                {result.input.productName}（{result.input.category}）の社会言語を開発しました
+                            </p>
+                        </div>
 
-                    {/* Export Buttons */}
-                    <div style={{ display: 'flex', gap: 12, marginBottom: 24, justifyContent: 'flex-end' }}>
-                        <button
-                            id="btn-copy-md"
-                            className="copy-btn"
-                            onClick={handleCopyMarkdown}
-                        >
-                            {copied ? '✓ コピー済み' : '📋 Markdownコピー'}
-                        </button>
-                        <button
-                            id="btn-download-md"
-                            className="copy-btn"
-                            onClick={handleDownloadMarkdown}
-                        >
-                            ⬇ ダウンロード
-                        </button>
-                    </div>
-
-                    {/* Tabs */}
-                    <div className="tab-group" style={{ marginBottom: 32 }}>
-                        {TABS.map((tab) => (
+                        {/* Export Buttons */}
+                        <div style={{ display: 'flex', gap: 12, marginBottom: 24, justifyContent: 'flex-end' }}>
                             <button
-                                key={tab.key}
-                                className={`tab-item ${activeTab === tab.key ? 'active' : ''}`}
-                                onClick={() => setActiveTab(tab.key)}
+                                id="btn-copy-md"
+                                className="copy-btn"
+                                onClick={handleCopyMarkdown}
                             >
-                                {tab.label}
+                                {copied ? '✓ コピー済み' : '📋 Markdownコピー'}
                             </button>
-                        ))}
-                    </div>
+                            <button
+                                id="btn-download-md"
+                                className="copy-btn"
+                                onClick={handleDownloadMarkdown}
+                            >
+                                ⬇ ダウンロード
+                            </button>
+                        </div>
 
-                    {/* Tab Content */}
-                    <div className="glass-card" style={{ padding: 36, minHeight: 400 }}>
+                        {/* Tabs */}
+                        <div className="tab-group" style={{ marginBottom: 32 }}>
+                            {TABS.map((tab) => (
+                                <button
+                                    key={tab.key}
+                                    className={`tab-item ${activeTab === tab.key ? 'active' : ''}`}
+                                    onClick={() => setActiveTab(tab.key)}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
 
-                        {/* Tab: Deep Listening */}
-                        {activeTab === 'listening' && (
-                            <div>
-                                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ color: 'var(--spectrum-cyan)' }}>●</span>
-                                    Positive / Hack — 攻略の悦び
-                                </h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 36 }}>
-                                    {result.phase1.positiveHacks.map((voice, i) => (
-                                        <div key={i} className="voice-item positive">
-                                            <span style={{ color: 'var(--spectrum-cyan)', flexShrink: 0 }}>❝</span>
-                                            <span>{voice}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                        {/* Tab Content */}
+                        <div className="glass-card" style={{ padding: 36, minHeight: 400 }}>
 
-                                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ color: 'var(--spectrum-red)' }}>●</span>
-                                    Negative / Pain — 微細な不快
-                                </h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 36 }}>
-                                    {result.phase1.negativePains.map((voice, i) => (
-                                        <div key={i} className="voice-item negative">
-                                            <span style={{ color: 'var(--spectrum-red)', flexShrink: 0 }}>❝</span>
-                                            <span>{voice}</span>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="spectrum-card" style={{ padding: 28 }}>
-                                    <h3 style={{
-                                        fontSize: 14,
-                                        fontWeight: 700,
-                                        color: 'var(--spectrum-yellow)',
-                                        marginBottom: 12,
-                                        letterSpacing: '0.05em',
-                                    }}>
-                                        ▸ 市場の再定義
-                                    </h3>
-                                    <p style={{
-                                        fontSize: 16,
-                                        fontWeight: 600,
-                                        lineHeight: 1.8,
-                                        color: 'var(--text-primary)',
-                                    }}>
-                                        {result.phase1.marketRedefinition}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Tab: Social Language */}
-                        {activeTab === 'language' && (
-                            <div>
-                                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 28 }}>
-                                    3つの社会言語
-                                </h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                                    {result.phase2.map((sl, i) => (
-                                        <div key={i} className="sl-card">
-                                            <div className="sl-keyword">{sl.keyword}</div>
-                                            <div className="sl-section-title">販促ストーリー</div>
-                                            <div className="sl-section-body">{sl.story}</div>
-                                            <div className="sl-section-title">根拠・ファクト</div>
-                                            <div className="sl-section-body">{sl.fact}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Tab: Survey Design */}
-                        {activeTab === 'survey' && (
-                            <div>
-                                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 28, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ color: 'var(--spectrum-green)' }}>◆</span>
-                                    イシューデザイン調査
-                                </h3>
-
-                                <div style={{ marginBottom: 36 }}>
-                                    <h4 style={{
-                                        fontSize: 14,
-                                        fontWeight: 700,
-                                        color: 'var(--spectrum-cyan)',
-                                        marginBottom: 16,
-                                    }}>
-                                        定量設問（3問）
-                                    </h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                        {result.phase3.quantitative.map((q, i) => (
-                                            <div key={i} className="glass-card" style={{
-                                                padding: '16px 20px',
-                                                display: 'flex',
-                                                gap: 14,
-                                                alignItems: 'flex-start',
-                                            }}>
-                                                <span style={{
-                                                    fontWeight: 800,
-                                                    color: 'var(--spectrum-cyan)',
-                                                    fontSize: 18,
-                                                    lineHeight: 1.5,
-                                                    flexShrink: 0,
-                                                }}>
-                                                    Q{i + 1}
-                                                </span>
-                                                <span style={{ fontSize: 14, lineHeight: 1.8 }}>{q}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
+                            {/* Tab: Deep Listening */}
+                            {activeTab === 'listening' && (
                                 <div>
-                                    <h4 style={{
-                                        fontSize: 14,
-                                        fontWeight: 700,
-                                        color: 'var(--spectrum-violet)',
-                                        marginBottom: 16,
-                                    }}>
-                                        定性設問（1問）
-                                    </h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                        {result.phase3.qualitative.map((q, i) => (
-                                            <div key={i} className="spectrum-card" style={{
-                                                padding: '20px 24px',
-                                            }}>
-                                                <span style={{ fontSize: 14, lineHeight: 1.8 }}>{q}</span>
+                                    <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ color: 'var(--spectrum-cyan)' }}>●</span>
+                                        Positive / Hack — 攻略の悦び
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 36 }}>
+                                        {result.phase1.positiveHacks.map((voice, i) => (
+                                            <div key={i} className="voice-item positive">
+                                                <span style={{ color: 'var(--spectrum-cyan)', flexShrink: 0 }}>❝</span>
+                                                <span>{voice}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ color: 'var(--spectrum-red)' }}>●</span>
+                                        Negative / Pain — 微細な不快
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 36 }}>
+                                        {result.phase1.negativePains.map((voice, i) => (
+                                            <div key={i} className="voice-item negative">
+                                                <span style={{ color: 'var(--spectrum-red)', flexShrink: 0 }}>❝</span>
+                                                <span>{voice}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="spectrum-card" style={{ padding: 28 }}>
+                                        <h3 style={{
+                                            fontSize: 14,
+                                            fontWeight: 700,
+                                            color: 'var(--spectrum-yellow)',
+                                            marginBottom: 12,
+                                            letterSpacing: '0.05em',
+                                        }}>
+                                            ▸ 市場の再定義
+                                        </h3>
+                                        <p style={{
+                                            fontSize: 16,
+                                            fontWeight: 600,
+                                            lineHeight: 1.8,
+                                            color: 'var(--text-primary)',
+                                        }}>
+                                            {result.phase1.marketRedefinition}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Tab: Social Language */}
+                            {activeTab === 'language' && (
+                                <div>
+                                    <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 28 }}>
+                                        3つの社会言語
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                                        {result.phase2.map((sl, i) => (
+                                            <div key={i} className="sl-card">
+                                                <div className="sl-keyword">{sl.keyword}</div>
+                                                <div className="sl-section-title">販促ストーリー</div>
+                                                <div className="sl-section-body">{sl.story}</div>
+                                                <div className="sl-section-title">根拠・ファクト</div>
+                                                <div className="sl-section-body">{sl.fact}</div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        {/* Tab: Output */}
-                        {activeTab === 'output' && (
-                            <div>
-                                {/* Positioning */}
-                                <div className="spectrum-card" style={{ padding: 28, marginBottom: 32 }}>
-                                    <h3 style={{
-                                        fontSize: 14,
-                                        fontWeight: 700,
-                                        color: 'var(--spectrum-yellow)',
-                                        marginBottom: 12,
-                                        letterSpacing: '0.05em',
-                                    }}>
-                                        ▸ ポジショニング提案
+                            {/* Tab: Survey Design */}
+                            {activeTab === 'survey' && (
+                                <div>
+                                    <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 28, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ color: 'var(--spectrum-green)' }}>◆</span>
+                                        イシューデザイン調査
                                     </h3>
-                                    <p style={{
-                                        fontSize: 16,
-                                        fontWeight: 600,
-                                        lineHeight: 1.8,
-                                        color: 'var(--text-primary)',
-                                        marginBottom: 20,
-                                    }}>
-                                        {result.phase4.positioning}
-                                    </p>
-                                    <div style={{
-                                        padding: '12px 20px',
-                                        background: 'rgba(255, 204, 51, 0.08)',
-                                        borderRadius: 'var(--radius-sm)',
-                                        border: '1px solid rgba(255, 204, 51, 0.15)',
-                                        fontSize: 14,
-                                        fontWeight: 600,
-                                    }}>
-                                        📰 {result.phase4.newsHeadline}
+
+                                    <div style={{ marginBottom: 36 }}>
+                                        <h4 style={{
+                                            fontSize: 14,
+                                            fontWeight: 700,
+                                            color: 'var(--spectrum-cyan)',
+                                            marginBottom: 16,
+                                        }}>
+                                            定量設問（3問）
+                                        </h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                            {result.phase3.quantitative.map((q, i) => (
+                                                <div key={i} className="glass-card" style={{
+                                                    padding: '16px 20px',
+                                                    display: 'flex',
+                                                    gap: 14,
+                                                    alignItems: 'flex-start',
+                                                }}>
+                                                    <span style={{
+                                                        fontWeight: 800,
+                                                        color: 'var(--spectrum-cyan)',
+                                                        fontSize: 18,
+                                                        lineHeight: 1.5,
+                                                        flexShrink: 0,
+                                                    }}>
+                                                        Q{i + 1}
+                                                    </span>
+                                                    <span style={{ fontSize: 14, lineHeight: 1.8 }}>{q}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h4 style={{
+                                            fontSize: 14,
+                                            fontWeight: 700,
+                                            color: 'var(--spectrum-violet)',
+                                            marginBottom: 16,
+                                        }}>
+                                            定性設問（1問）
+                                        </h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                            {result.phase3.qualitative.map((q, i) => (
+                                                <div key={i} className="spectrum-card" style={{
+                                                    padding: '20px 24px',
+                                                }}>
+                                                    <span style={{ fontSize: 14, lineHeight: 1.8 }}>{q}</span>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
+                            )}
 
-                                {/* Report Summary */}
-                                <MarkdownSection
-                                    title="調査レポートサマリ"
-                                    markdown={result.phase4.reportSummary}
-                                    icon="◇"
-                                    iconColor="var(--spectrum-cyan)"
-                                />
+                            {/* Tab: Output */}
+                            {activeTab === 'output' && (
+                                <div>
+                                    {/* Positioning */}
+                                    <div className="spectrum-card" style={{ padding: 28, marginBottom: 32 }}>
+                                        <h3 style={{
+                                            fontSize: 14,
+                                            fontWeight: 700,
+                                            color: 'var(--spectrum-yellow)',
+                                            marginBottom: 12,
+                                            letterSpacing: '0.05em',
+                                        }}>
+                                            ▸ ポジショニング提案
+                                        </h3>
+                                        <p style={{
+                                            fontSize: 16,
+                                            fontWeight: 600,
+                                            lineHeight: 1.8,
+                                            color: 'var(--text-primary)',
+                                            marginBottom: 20,
+                                        }}>
+                                            {result.phase4.positioning}
+                                        </p>
+                                        <div style={{
+                                            padding: '12px 20px',
+                                            background: 'rgba(255, 204, 51, 0.08)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            border: '1px solid rgba(255, 204, 51, 0.15)',
+                                            fontSize: 14,
+                                            fontWeight: 600,
+                                        }}>
+                                            📰 {result.phase4.newsHeadline}
+                                        </div>
+                                    </div>
 
-                                {/* Press Release */}
-                                <MarkdownSection
-                                    title="プレスリリース記事"
-                                    markdown={result.phase4.pressRelease}
-                                    icon="◇"
-                                    iconColor="var(--spectrum-violet)"
-                                />
-                            </div>
-                        )}
-                    </div>
+                                    {/* Report Summary */}
+                                    <MarkdownSection
+                                        title="調査レポートサマリ"
+                                        markdown={result.phase4.reportSummary}
+                                        icon="◇"
+                                        iconColor="var(--spectrum-cyan)"
+                                    />
 
-                    {/* Back to Top */}
-                    <div style={{ textAlign: 'center', marginTop: 48 }}>
-                        <a href="/" style={{
-                            color: 'var(--text-muted)',
-                            fontSize: 14,
-                            textDecoration: 'none',
-                            transition: 'color 0.2s',
-                        }}>
-                            ← 新しい解析を開始する
-                        </a>
-                    </div>
-                </>
-            )}
-        </div>
+                                    {/* Press Release */}
+                                    <MarkdownSection
+                                        title="プレスリリース記事"
+                                        markdown={result.phase4.pressRelease}
+                                        icon="◇"
+                                        iconColor="var(--spectrum-violet)"
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Back to Top */}
+                        <div style={{ textAlign: 'center', marginTop: 48 }}>
+                            <a href="/" style={{
+                                color: 'var(--text-muted)',
+                                fontSize: 14,
+                                textDecoration: 'none',
+                                transition: 'color 0.2s',
+                            }}>
+                                ← 新しい解析を開始する
+                            </a>
+                        </div>
+                    </>
+                )
+            }
+        </div >
     );
 }
