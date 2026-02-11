@@ -207,8 +207,8 @@ export default function HomePage() {
             />
           </div>
 
-          {/* Model Selection */}
-          <div style={{ marginBottom: 32 }}>
+          {/* Model Selection — 2-column */}
+          <div style={{ marginBottom: 24 }}>
             <label style={{
               display: 'block',
               fontSize: 13,
@@ -218,15 +218,13 @@ export default function HomePage() {
             }}>
               分析エンジン
             </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
               {[
                 {
                   id: 'gemini-3-flash-preview' as GeminiModel,
                   name: 'Gemini 3 Flash',
                   badge: 'おすすめ',
                   badgeColor: 'var(--spectrum-cyan)',
-                  time: '約40秒',
-                  cost: '約0.5円',
                   desc: '高速＆高品質。通常の分析に最適',
                 },
                 {
@@ -234,8 +232,6 @@ export default function HomePage() {
                   name: 'Gemini 3 Pro',
                   badge: '高精度',
                   badgeColor: 'var(--spectrum-violet)',
-                  time: '約2〜3分',
-                  cost: '約3円',
                   desc: '最高精度。深い洞察が必要な案件向け',
                 },
               ].map((m) => (
@@ -244,10 +240,12 @@ export default function HomePage() {
                   type="button"
                   onClick={() => setModel(m.id)}
                   style={{
+                    flex: 1,
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
-                    gap: 14,
-                    padding: '14px 18px',
+                    gap: 6,
+                    padding: '14px 12px',
                     borderRadius: 'var(--radius-md)',
                     border: model === m.id
                       ? `1px solid ${m.badgeColor}`
@@ -256,72 +254,36 @@ export default function HomePage() {
                       ? `${m.badgeColor}10`
                       : 'transparent',
                     cursor: 'pointer',
-                    textAlign: 'left',
+                    textAlign: 'center',
                     fontFamily: 'inherit',
                     transition: 'all 0.2s',
                   }}
                 >
-                  {/* Radio dot */}
-                  <div style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: '50%',
-                    border: model === m.id
-                      ? `2px solid ${m.badgeColor}`
-                      : '2px solid var(--text-muted)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    {model === m.id && (
-                      <div style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        background: m.badgeColor,
-                      }} />
-                    )}
-                  </div>
-                  {/* Content */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {m.name}
-                      </span>
-                      <span style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        padding: '2px 8px',
-                        borderRadius: 'var(--radius-sm)',
-                        background: `${m.badgeColor}20`,
-                        color: m.badgeColor,
-                        letterSpacing: '0.03em',
-                      }}>
-                        {m.badge}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                      {m.desc}
-                    </div>
-                    <div style={{
-                      fontSize: 11,
-                      color: 'var(--text-muted)',
-                      marginTop: 4,
-                      display: 'flex',
-                      gap: 16,
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {m.name}
+                    </span>
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: '2px 6px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: `${m.badgeColor}20`,
+                      color: m.badgeColor,
                     }}>
-                      <span>⏱ {m.time}</span>
-                      <span>💰 {m.cost}/回</span>
-                    </div>
+                      {m.badge}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {m.desc}
                   </div>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Research Depth */}
-          <div style={{ marginBottom: 32 }}>
+          {/* Research Depth — 2-column */}
+          <div style={{ marginBottom: 16 }}>
             <label style={{
               display: 'block',
               fontSize: 13,
@@ -338,18 +300,16 @@ export default function HomePage() {
                   name: 'Standard',
                   badge: '高速',
                   badgeColor: 'var(--spectrum-cyan)',
-                  time: '約40秒',
-                  cost: '約2〜3円',
                   desc: 'Google検索のサマリーから分析',
+                  sources: '3〜5件',
                 },
                 {
                   id: 'deep' as ResearchDepth,
                   name: 'Deep Research',
                   badge: '高精度',
                   badgeColor: 'var(--spectrum-green)',
-                  time: '約1〜2分',
-                  cost: '約5円',
                   desc: '実際のWebページを読み込んで深く分析',
+                  sources: '15〜20件',
                 },
               ].map((d) => (
                 <button
@@ -394,13 +354,39 @@ export default function HomePage() {
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                     {d.desc}
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', gap: 10 }}>
-                    <span>⏱ {d.time}</span>
-                    <span>💰 {d.cost}/回</span>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                    📄 ソース数: 約{d.sources}
                   </div>
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Combined Estimate */}
+          <div style={{
+            marginBottom: 32,
+            padding: '10px 16px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--border-subtle)',
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 24,
+            fontSize: 12,
+            color: 'var(--text-muted)',
+          }}>
+            <span>⏱ 推定時間: <strong style={{ color: 'var(--text-secondary)' }}>
+              {model === 'gemini-3-flash-preview' && researchDepth === 'standard' && '約40秒'}
+              {model === 'gemini-3-flash-preview' && researchDepth === 'deep' && '約1〜2分'}
+              {model === 'gemini-3-pro-preview' && researchDepth === 'standard' && '約2〜3分'}
+              {model === 'gemini-3-pro-preview' && researchDepth === 'deep' && '約3〜5分'}
+            </strong></span>
+            <span>💰 推定コスト: <strong style={{ color: 'var(--text-secondary)' }}>
+              {model === 'gemini-3-flash-preview' && researchDepth === 'standard' && '約2〜3円'}
+              {model === 'gemini-3-flash-preview' && researchDepth === 'deep' && '約5円'}
+              {model === 'gemini-3-pro-preview' && researchDepth === 'standard' && '約8〜10円'}
+              {model === 'gemini-3-pro-preview' && researchDepth === 'deep' && '約15〜20円'}
+            </strong></span>
           </div>
 
           {/* Submit */}
