@@ -2,7 +2,7 @@
 // PRISM — Analysis API Route (SSE Streaming)
 // ============================================================
 
-import { generateJSON, multiGroundedResearch, deepResearchContent } from '@/lib/gemini';
+import { generateJSON, multiGroundedResearch, deepResearchContent, fetchActualTitles } from '@/lib/gemini';
 import {
     buildPhase1Prompt,
     buildPhase2Prompt,
@@ -141,6 +141,27 @@ export async function POST(request: Request) {
                         + `\n\n【出典URLリスト（sourceUrlにはこのリストのURLのみを使用すること）】\n${sourceRefList}`;
                     phase1 = await generateJSON<DeepListeningResult>(phase1Prompt, modelId, systemPrompt);
                 }
+
+                // Fetch actual page titles from URLs (parallel, non-blocking)
+                send({ type: 'progress', phase: 1, percent: 16, message: 'Phase 1: ソースページの正式タイトルを取得中...' });
+                groundingSources = await fetchActualTitles(groundingSources);
+
+                // Build a URL→title map for correcting voice-level sourceTitle
+                const titleMap = new Map(groundingSources.map(s => [s.url, s.title]));
+                const correctTitles = (voices: (string | { text: string; sourceUrl?: string; sourceTitle?: string })[]): { text: string; sourceUrl?: string; sourceTitle?: string }[] => {
+                    return voices.map(v => {
+                        const item = typeof v === 'string' ? { text: v } : v;
+                        if (item.sourceUrl && titleMap.has(item.sourceUrl)) {
+                            return { ...item, sourceTitle: titleMap.get(item.sourceUrl) };
+                        }
+                        return item;
+                    });
+                };
+                phase1 = {
+                    ...phase1,
+                    positiveHacks: correctTitles(phase1.positiveHacks),
+                    negativePains: correctTitles(phase1.negativePains),
+                };
 
                 send({ type: 'progress', phase: 1, percent: 18, message: `Phase 1: Deep Listening 完了 ✓${researchDepth === 'deep' ? ' [Deep Research]' : ''}` });
                 send({ type: 'phase_result', phase: 1, data: phase1, groundingSources });

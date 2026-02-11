@@ -307,7 +307,7 @@ export default function HomePage() {
                   id: 'deep' as ResearchDepth,
                   name: 'Deep Research',
                   badge: '高精度',
-                  badgeColor: 'var(--spectrum-green)',
+                  badgeColor: 'var(--spectrum-violet)',
                   desc: '実際のWebページを読み込んで深く分析',
                   sources: '15〜20件',
                 },

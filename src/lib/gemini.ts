@@ -8,6 +8,58 @@ import { DEFAULT_SYSTEM_PROMPT } from './prompts';
 
 let ai: GoogleGenAI | null = null;
 
+/**
+ * Fetch actual page titles from URLs by reading HTML <title> tags.
+ * Runs in parallel with a timeout per request.
+ */
+export async function fetchActualTitles(
+    sources: GroundingSource[],
+    timeoutMs = 5000,
+): Promise<GroundingSource[]> {
+    const results = await Promise.allSettled(
+        sources.slice(0, 20).map(async (src) => {
+            try {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), timeoutMs);
+                const res = await fetch(src.url, {
+                    signal: controller.signal,
+                    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PRISM/1.0)' },
+                    redirect: 'follow',
+                });
+                clearTimeout(timer);
+                if (!res.ok) return src;
+                // Read only the first ~16KB to find <title>
+                const reader = res.body?.getReader();
+                if (!reader) return src;
+                let html = '';
+                const decoder = new TextDecoder();
+                while (html.length < 16384) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    html += decoder.decode(value, { stream: true });
+                    // Check if we've found closing </title>
+                    if (html.includes('</title>') || html.includes('</TITLE>')) break;
+                }
+                reader.cancel();
+                const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+                if (match?.[1]) {
+                    const title = match[1].replace(/[\n\r\t]+/g, ' ').trim();
+                    if (title.length > 0 && title.length < 200) {
+                        return { ...src, title };
+                    }
+                }
+                return src;
+            } catch {
+                return src;
+            }
+        })
+    );
+
+    return results.map((r, i) =>
+        r.status === 'fulfilled' ? r.value : sources[i]
+    );
+}
+
 function getClient(): GoogleGenAI {
     if (!ai) {
         const apiKey = process.env.GEMINI_API_KEY;
