@@ -1,0 +1,135 @@
+// ============================================================
+// PRISM — Prompt Templates for 4-Phase Analysis
+// ============================================================
+
+import type { PrismInput } from './types';
+
+/** Phase 1: Deep Listening & Insight */
+export function buildPhase1Prompt(input: PrismInput): string {
+    return `【Phase 1: Deep Listening & Insight — 前提の整理】
+
+対象商材: ${input.productName}
+カテゴリ: ${input.category}
+現状の課題・特徴: ${input.challenges}
+
+あなたのタスク:
+「${input.category}」について、SNSやレビューサイトでの生活者の声を深く聴取し、以下を抽出してください。
+
+1. **ポジティブ・ハック（Positive/Hack）**: メーカーの意図を超えた使い方、シンデレラフィット、攻略の悦び。生活者の生々しい一人称の言葉で10個。
+2. **ネガティブ・ペイン（Negative/Pain）**: 諦め、虚無感、仕方なく使っている感覚。生活者の生々しい一人称の言葉で10個。
+3. **市場の再定義（Market Redefinition）**: 「現在の市場は『〇〇』という認識だが、実態は『△△』で動いている」という最短の定義文。
+
+以下のJSON形式で出力してください:
+{
+  "positiveHacks": ["声1", "声2", ...],
+  "negativePains": ["声1", "声2", ...],
+  "marketRedefinition": "定義文"
+}`;
+}
+
+/** Phase 2: Social Language Development */
+export function buildPhase2Prompt(
+    input: PrismInput,
+    phase1Summary: string
+): string {
+    return `【Phase 2: Social Language Development — 社会言語開発】
+
+対象商材: ${input.productName}
+カテゴリ: ${input.category}
+Deep Listeningの結果:
+${phase1Summary}
+
+あなたのタスク:
+Deep Listeningで得た「生の声」を、一般名詞化された「社会言語」へと昇華させてください。
+
+生成要件:
+- 既存の意味や価値をひっくり返すアプローチであること
+- ニュースのテロップやSNSのハッシュタグになり得る「現象名」であること
+- 3つの社会言語を開発し、それぞれにストーリーとファクトをセットで出力
+
+品質基準:
+1. ドヤ感: 使った時に「賢い私」という肯定感が生まれるか
+2. 遊びの余白: 「あなたならどう使う？」が内包されているか
+3. 脱・妥協: 価値の逆転（リフレーミング）が起きているか
+4. メディア親和性: ハッシュタグやテロップとして自然か
+
+以下のJSON形式で出力してください:
+[
+  {
+    "keyword": "【社会言語名】",
+    "story": "なぜ今この言葉が必要なのかのロジック",
+    "fact": "裏付ける生活者の行動事実"
+  },
+  ...
+]
+
+3つの社会言語を出力してください。`;
+}
+
+/** Phase 3: Evidence Design */
+export function buildPhase3Prompt(
+    input: PrismInput,
+    socialLanguages: string
+): string {
+    return `【Phase 3: Evidence Design — イシューデザイン調査設計】
+
+対象商材: ${input.productName}
+カテゴリ: ${input.category}
+開発した社会言語:
+${socialLanguages}
+
+あなたのタスク:
+「社会言語が、実は社会の正解である」ことを証明するための調査を設計してください。
+「言葉（仮説）に基づき調査を作る」逆算アプローチです。
+
+定量調査（3問）:
+- 生活者が「そう言われてみればそうだ（YES）」と答えざるを得ない設問を設計する
+- これがロジックの鉄壁さを作る
+
+定性調査（1問）:
+- 具体的なエピソードやワクワク感を想起させ、その感情に名前をつけるような問い
+
+以下のJSON形式で出力してください:
+{
+  "quantitative": ["設問1", "設問2", "設問3"],
+  "qualitative": ["設問1"]
+}`;
+}
+
+/** Phase 4: Output Generation */
+export function buildPhase4Prompt(
+    input: PrismInput,
+    phase1Summary: string,
+    socialLanguages: string,
+    surveyDesign: string
+): string {
+    return `【Phase 4: Output Generation — アウトプット生成】
+
+対象商材: ${input.productName}
+カテゴリ: ${input.category}
+
+Phase 1（Deep Listening）結果:
+${phase1Summary}
+
+Phase 2（社会言語）:
+${socialLanguages}
+
+Phase 3（調査設計）:
+${surveyDesign}
+
+あなたのタスク:
+以下の3つのアウトプットを生成してください。
+
+1. **調査レポートサマリ** (2〜3ページ分のテキスト): Phase 3の調査結果を想定して記述。データは仮想だが説得力のある数字を使用。
+2. **プレスリリース記事**: 市場の再定義ニュースとして記事化。「消費者は〇〇を求めているのではない。△△を求めているのだ」のような切り口で。
+3. **ポジショニング提案（結論）**: クライアントへの最終提言。「御社は今後、〇〇ではなく『△△』と名乗るべきである」形式。
+4. **ニュース見出し案**: Yahoo!トピックス風の見出し（1行）
+
+以下のJSON形式で出力してください:
+{
+  "reportSummary": "レポートサマリ（Markdown形式）",
+  "pressRelease": "プレスリリース記事（Markdown形式）",
+  "positioning": "ポジショニング提案文",
+  "newsHeadline": "ニュース見出し（1行）"
+}`;
+}
