@@ -27,7 +27,45 @@ export const DEFAULT_SYSTEM_PROMPT = `あなたは「社会記号学者 兼 マ�
 // ── Default Phase Templates ──
 // Variables: {{productName}}, {{category}}, {{challenges}}, {{phase1Summary}}, {{socialLanguages}}, {{surveyDesign}}
 
-// ── Grounding Research Prompt (used with Google Search) ──
+// ── Multi-angle Grounding Search Prompts ──
+
+const SEARCH_ANGLES = [
+  {
+    label: 'レビュー・口コミ全般',
+    template: `「{{productName}}」（{{category}}）について、レビューサイトや口コミサイトでの生活者の評価・感想を調査してください。実際のレビュー投稿から具体的な声をできるだけ多く引用してください。日本語で回答してください。`,
+  },
+  {
+    label: 'ポジティブ・裏技系',
+    template: `「{{productName}}」（{{category}}）の意外な使い方、裏技、シンデレラフィット、便利な活用法についてSNSやブログでの声を調査してください。「こんな使い方があったのか」という発見系の投稿を重点的に探してください。日本語で回答してください。`,
+  },
+  {
+    label: 'ネガティブ・不満系',
+    template: `「{{productName}}」（{{category}}）に対する不満、問題点、改善してほしい点、期待はずれだった声をSNSやレビューサイトから調査してください。「仕方なく使っている」「もっとこうしてほしい」という諦めの声を重点的に探してください。日本語で回答してください。`,
+  },
+  {
+    label: 'SNS話題・バズ',
+    template: `「{{productName}}」（{{category}}）がSNSで話題になった投稿、バズった使い方、おすすめ情報を調査してください。Twitter/X、Instagram、TikTok等での生活者の声を探してください。日本語で回答してください。`,
+  },
+  {
+    label: '市場・比較・トレンド',
+    template: `「{{category}}」の市場トレンド、「{{productName}}」と競合との比較、業界に対する生活者の認識やトレンドの変化を調査してください。日本語で回答してください。`,
+  },
+];
+
+/**
+ * Build multiple grounding prompts for parallel search.
+ */
+export function buildMultiGroundingPrompts(input: PrismInput): string[] {
+  return SEARCH_ANGLES.map(angle =>
+    fillTemplate(angle.template, {
+      productName: input.productName,
+      category: input.category,
+      challenges: input.challenges,
+    })
+  );
+}
+
+// (Legacy — kept for backward compatibility)
 export const GROUNDING_RESEARCH_PROMPT = `以下の商材について、SNS・レビューサイト・掲示板・ブログ等での生活者のリアルな声を調査してください。
 
 商材: {{productName}}
@@ -57,21 +95,21 @@ export const DEFAULT_PHASE1_TEMPLATE = `【Phase 1: Deep Listening & Insight —
 現状の課題・特徴: {{challenges}}
 
 あなたのタスク:
-「{{category}}」について、SNSやレビューサイトでの生活者の声を深く聴取し、以下を抽出してください。
+以下の複数の検索結果データを分析し、生活者の声を抽出・整理してください。
 
 1. **ポジティブ・ハック（Positive/Hack）**: メーカーの意図を超えた使い方、シンデレラフィット、攻略の悦び。生活者の生々しい一人称の言葉で10個。
 2. **ネガティブ・ペイン（Negative/Pain）**: 諦め、虚無感、仕方なく使っている感覚。生活者の生々しい一人称の言葉で10個。
 3. **市場の再定義（Market Redefinition）**: 「現在の市場は『〇〇』という認識だが、実態は『△△』で動いている」という最短の定義文。
 
-**重要**: 各声には、その情報の実際の出典ページURLとサイト名を含めてください。
-- 下部の「出典URLリスト」から、その声の内容に最も関連するURLを選んで sourceUrl に設定すること
-- URLは必ず出典URLリストに掲載されているものだけを使用すること（自分でURLを生成・推測しないこと）
-- サイトのトップページではなく、実際に声が掲載されている記事・投稿ページのURLを優先すること
+**出典URLの指定ルール**:
+- 下部の「ソース別テキストセグメント」を参照し、各声の内容に最も関連するセグメントのsourceUrlを使用すること
+- 「出典URLリスト」に掲載されているURLのみを使用すること（自分でURLを生成・推測しないこと）
+- 声の内容と明確に対応するソースがない場合は、sourceUrl を空文字 "" にすること（無理にURLを付けないこと）
 
 以下のJSON形式で出力してください:
 {
-  "positiveHacks": [{"text": "声1", "sourceUrl": "https://example.com/...", "sourceTitle": "サイト名"}, ...],
-  "negativePains": [{"text": "声1", "sourceUrl": "https://example.com/...", "sourceTitle": "サイト名"}, ...],
+  "positiveHacks": [{"text": "声1", "sourceUrl": "https://...", "sourceTitle": "サイト名"}, ...],
+  "negativePains": [{"text": "声1", "sourceUrl": "https://...", "sourceTitle": "サイト名"}, ...],
   "marketRedefinition": "定義文"
 }`;
 

@@ -2,7 +2,7 @@
 // PRISM — Analysis API Route (SSE Streaming)
 // ============================================================
 
-import { generateJSON, generateGroundedContent } from '@/lib/gemini';
+import { generateJSON, multiGroundedResearch } from '@/lib/gemini';
 import {
     buildPhase1Prompt,
     buildPhase2Prompt,
@@ -11,7 +11,7 @@ import {
     buildPhase4aPrompt,
     buildPhase4bPrompt,
     buildPhase4cPrompt,
-    buildGroundingPrompt,
+    buildMultiGroundingPrompts,
     DEFAULT_SYSTEM_PROMPT,
 } from '@/lib/prompts';
 import type {
@@ -78,26 +78,34 @@ export async function POST(request: Request) {
                 //   Step 1: Google Search grounded research
                 //   Step 2: Structure into JSON
                 // ────────────────────────────────────────────
-                send({ type: 'progress', phase: 1, percent: 2, message: 'Phase 1: Google検索で生活者のリアルな声を調査中...' });
+                send({ type: 'progress', phase: 1, percent: 2, message: 'Phase 1: 5つの角度からGoogle検索で生活者のリアルな声を調査中...' });
 
-                // Step 1: Grounded research — searches the real web
-                const groundingPrompt = buildGroundingPrompt(input);
-                const groundedResult = await generateGroundedContent(groundingPrompt, modelId, systemPrompt);
+                // Step 1: Multi-angle grounded research — 5 parallel searches
+                const groundingPrompts = buildMultiGroundingPrompts(input);
+                const multiResult = await multiGroundedResearch(groundingPrompts, modelId, systemPrompt);
 
-                send({ type: 'progress', phase: 1, percent: 10, message: 'Phase 1: 調査データを分析・構造化中...' });
+                send({ type: 'progress', phase: 1, percent: 10, message: `Phase 1: ${multiResult.allSources.length}件のソースから声を分析・構造化中...` });
 
                 // Step 2: Structure the grounded data into JSON
-                // Build source reference list so the LLM can cite actual URLs
-                const sourceRefList = groundedResult.sources
+                // Build segment-based source references for accurate attribution
+                const segmentRef = multiResult.allSegments
+                    .map((seg, i) => {
+                        const srcInfo = seg.sources.map(s => `${s.title} (${s.url})`).join(', ');
+                        return `[セグメント${i + 1}] ${seg.text.substring(0, 200)}...\n  → 出典: ${srcInfo}`;
+                    })
+                    .join('\n\n');
+                const sourceRefList = multiResult.allSources
                     .map((src, i) => `[${i + 1}] ${src.title} — ${src.url}`)
                     .join('\n');
+
                 const phase1Prompt = buildPhase1Prompt(input, prompts?.phase1Template)
-                    + `\n\n【参考: Google検索による実際の生活者の声】\n${groundedResult.text}`
+                    + `\n\n【参考: Google検索による実際の生活者の声（5つの検索角度から収集）】\n${multiResult.combinedText}`
+                    + `\n\n【ソース別テキストセグメント（各声のsourceUrl指定に使用）】\n${segmentRef}`
                     + `\n\n【出典URLリスト（sourceUrlにはこのリストのURLのみを使用すること）】\n${sourceRefList}`;
                 const phase1 = await generateJSON<DeepListeningResult>(phase1Prompt, modelId, systemPrompt);
 
                 send({ type: 'progress', phase: 1, percent: 18, message: 'Phase 1: Deep Listening 完了 ✓' });
-                send({ type: 'phase_result', phase: 1, data: phase1, groundingSources: groundedResult.sources });
+                send({ type: 'phase_result', phase: 1, data: phase1, groundingSources: multiResult.allSources });
 
                 const phase1Summary = `ポジティブ・ハック:\n${phase1.positiveHacks.map((h) => `- ${typeof h === 'string' ? h : h.text}`).join('\n')}\n\nネガティブ・ペイン:\n${phase1.negativePains.map((p) => `- ${typeof p === 'string' ? p : p.text}`).join('\n')}\n\n市場の再定義: ${phase1.marketRedefinition}`;
 
@@ -188,7 +196,7 @@ export async function POST(request: Request) {
                         phase2,
                         phase3,
                         phase4,
-                        groundingSources: groundedResult.sources,
+                        groundingSources: multiResult.allSources,
                     },
                 });
             } catch (error) {

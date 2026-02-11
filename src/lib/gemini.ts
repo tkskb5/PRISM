@@ -3,7 +3,7 @@
 // ============================================================
 
 import { GoogleGenAI } from '@google/genai';
-import type { GeminiModel, GroundingSource } from './types';
+import type { GeminiModel, GroundingSource, GroundingSegment } from './types';
 import { DEFAULT_SYSTEM_PROMPT } from './prompts';
 
 let ai: GoogleGenAI | null = null;
@@ -25,6 +25,18 @@ const DEFAULT_MODEL: GeminiModel = 'gemini-3-flash-preview';
 export interface GroundedResult {
     text: string;
     sources: GroundingSource[];
+    /** Text segments mapped to their specific sources via groundingSupports */
+    segments: GroundingSegment[];
+}
+
+/** Merged result from multiple grounded searches */
+export interface MultiGroundedResult {
+    /** All grounded texts concatenated with labels */
+    combinedText: string;
+    /** Deduplicated sources across all searches */
+    allSources: GroundingSource[];
+    /** All segments from all searches */
+    allSegments: GroundingSegment[];
 }
 
 /**
@@ -65,11 +77,7 @@ export async function generateJSON<T>(
 
 /**
  * Generate content with Google Search grounding enabled.
- * Returns grounded text AND source URLs from the search results.
- *
- * NOTE: Grounding cannot be combined with JSON response mode,
- * so this returns raw text. Use generateJSON separately to
- * structure the grounded output.
+ * Returns grounded text, source URLs, AND per-segment source mapping.
  */
 export async function generateGroundedContent(
     prompt: string,
@@ -86,9 +94,11 @@ export async function generateGroundedContent(
         },
     });
 
-    // Extract source URLs from grounding metadata
+    const groundingMeta = response.candidates?.[0]?.groundingMetadata;
+
+    // Extract source URLs from grounding chunks
     const sources: GroundingSource[] = [];
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    const chunks = groundingMeta?.groundingChunks;
     if (chunks) {
         for (const chunk of chunks) {
             if (chunk.web?.uri) {
@@ -100,8 +110,70 @@ export async function generateGroundedContent(
         }
     }
 
-    return {
-        text: response.text ?? '',
-        sources,
-    };
+    // Extract text-to-source mapping from groundingSupports
+    const fullText = response.text ?? '';
+    const segments: GroundingSegment[] = [];
+    const supports = groundingMeta?.groundingSupports;
+    if (supports && chunks) {
+        for (const support of supports) {
+            const seg = support.segment;
+            if (seg?.text) {
+                const segSources: GroundingSource[] = [];
+                const indices = support.groundingChunkIndices;
+                if (indices) {
+                    for (const idx of indices) {
+                        const chunk = chunks[idx];
+                        if (chunk?.web?.uri) {
+                            segSources.push({
+                                title: chunk.web.title ?? chunk.web.uri,
+                                url: chunk.web.uri,
+                            });
+                        }
+                    }
+                }
+                if (segSources.length > 0) {
+                    segments.push({ text: seg.text, sources: segSources });
+                }
+            }
+        }
+    }
+
+    return { text: fullText, sources, segments };
+}
+
+/**
+ * Execute multiple grounded searches in parallel with different angles.
+ * Returns combined text, deduplicated sources, and all segments.
+ */
+export async function multiGroundedResearch(
+    queries: string[],
+    modelId: GeminiModel = DEFAULT_MODEL,
+    systemPrompt: string = DEFAULT_SYSTEM_PROMPT,
+): Promise<MultiGroundedResult> {
+    // Run all searches in parallel
+    const results = await Promise.all(
+        queries.map(q => generateGroundedContent(q, modelId, systemPrompt))
+    );
+
+    // Combine text with labels
+    const combinedText = results
+        .map((r, i) => `【検索${i + 1}の結果】\n${r.text}`)
+        .join('\n\n');
+
+    // Deduplicate sources by URL
+    const seenUrls = new Set<string>();
+    const allSources: GroundingSource[] = [];
+    for (const r of results) {
+        for (const src of r.sources) {
+            if (!seenUrls.has(src.url)) {
+                seenUrls.add(src.url);
+                allSources.push(src);
+            }
+        }
+    }
+
+    // Collect all segments
+    const allSegments: GroundingSegment[] = results.flatMap(r => r.segments);
+
+    return { combinedText, allSources, allSegments };
 }

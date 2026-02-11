@@ -8,6 +8,12 @@ export interface GroundingSource {
     url: string;
 }
 
+/** テキストセグメントとソースの紐づけ（groundingSupportsから抽出） */
+export interface GroundingSegment {
+    text: string;
+    sources: GroundingSource[];
+}
+
 /** 利用可能なGeminiモデル */
 export type GeminiModel = 'gemini-3-flash-preview' | 'gemini-3-pro-preview';
 
