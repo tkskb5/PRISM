@@ -8,6 +8,9 @@ import {
     buildPhase2Prompt,
     buildPhase3Prompt,
     buildPhase4Prompt,
+    buildPhase4aPrompt,
+    buildPhase4bPrompt,
+    buildPhase4cPrompt,
     DEFAULT_SYSTEM_PROMPT,
 } from '@/lib/prompts';
 import type {
@@ -30,10 +33,9 @@ interface AnalyzeRequest {
 /**
  * SSE streaming endpoint — sends progress events as each phase completes.
  *
- * Event format: `data: { "type": "progress"|"result"|"error", ... }\n\n`
- *
- * Progress events include `phase` (1-4), `percent` (0-100), and `message`.
- * The final `result` event includes the full PrismResult.
+ * Percentages are weighted by estimated processing time, not equal per phase.
+ * Phase 4 is split into 3 sub-calls (report, press release, positioning)
+ * to provide granular progress during the longest phase.
  */
 export async function POST(request: Request) {
     let body: AnalyzeRequest;
@@ -49,7 +51,6 @@ export async function POST(request: Request) {
     const input = body.input ?? body as unknown as PrismInput;
     const prompts = body.customPrompts;
 
-    // Validate input
     if (!input.productName || !input.category || !input.challenges) {
         return new Response(
             JSON.stringify({ error: '商材名、カテゴリ、課題のすべてを入力してください。' }),
@@ -57,14 +58,12 @@ export async function POST(request: Request) {
         );
     }
 
-    // Validate model
     const modelId: GeminiModel = VALID_MODELS.includes(input.model as GeminiModel)
         ? (input.model as GeminiModel)
         : 'gemini-3-flash-preview';
 
     const systemPrompt = prompts?.systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
-    // Create SSE stream
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
         async start(controller) {
@@ -73,51 +72,93 @@ export async function POST(request: Request) {
             };
 
             try {
-                // ── Phase 1: Deep Listening & Insight ──
-                send({ type: 'progress', phase: 1, percent: 5, message: 'Phase 1: Deep Listening — 生活者の声を聴取中...' });
+                // ────────────────────────────────────────────
+                // Phase 1: Deep Listening & Insight (~12%)
+                // ────────────────────────────────────────────
+                send({ type: 'progress', phase: 1, percent: 2, message: 'Phase 1: Deep Listening — 生活者の声を聴取中...' });
 
                 const phase1Prompt = buildPhase1Prompt(input, prompts?.phase1Template);
                 const phase1 = await generateJSON<DeepListeningResult>(phase1Prompt, modelId, systemPrompt);
 
-                send({ type: 'progress', phase: 1, percent: 25, message: 'Phase 1 完了 ✓' });
+                send({ type: 'progress', phase: 1, percent: 12, message: 'Phase 1: Deep Listening 完了 ✓' });
 
                 const phase1Summary = `ポジティブ・ハック:\n${phase1.positiveHacks.map((h) => `- ${h}`).join('\n')}\n\nネガティブ・ペイン:\n${phase1.negativePains.map((p) => `- ${p}`).join('\n')}\n\n市場の再定義: ${phase1.marketRedefinition}`;
 
-                // ── Phase 2: Social Language Development ──
-                send({ type: 'progress', phase: 2, percent: 30, message: 'Phase 2: Social Language — 社会言語を開発中...' });
+                // ────────────────────────────────────────────
+                // Phase 2: Social Language Development (~8%)
+                // ────────────────────────────────────────────
+                send({ type: 'progress', phase: 2, percent: 14, message: 'Phase 2: Social Language — 社会言語を開発中...' });
 
                 const phase2Prompt = buildPhase2Prompt(input, phase1Summary, prompts?.phase2Template);
                 const phase2 = await generateJSON<SocialLanguage[]>(phase2Prompt, modelId, systemPrompt);
 
-                send({ type: 'progress', phase: 2, percent: 50, message: 'Phase 2 完了 ✓' });
+                send({ type: 'progress', phase: 2, percent: 22, message: 'Phase 2: Social Language 完了 ✓' });
 
                 const socialLanguagesSummary = phase2
                     .map((sl, i) => `${i + 1}. ${sl.keyword}\n   ストーリー: ${sl.story}\n   ファクト: ${sl.fact}`)
                     .join('\n\n');
 
-                // ── Phase 3: Evidence Design ──
-                send({ type: 'progress', phase: 3, percent: 55, message: 'Phase 3: Evidence Design — 調査設計中...' });
+                // ────────────────────────────────────────────
+                // Phase 3: Evidence Design (~8%)
+                // ────────────────────────────────────────────
+                send({ type: 'progress', phase: 3, percent: 24, message: 'Phase 3: Evidence Design — 調査設計中...' });
 
                 const phase3Prompt = buildPhase3Prompt(input, socialLanguagesSummary, prompts?.phase3Template);
                 const phase3 = await generateJSON<SurveyDesign>(phase3Prompt, modelId, systemPrompt);
 
-                send({ type: 'progress', phase: 3, percent: 75, message: 'Phase 3 完了 ✓' });
+                send({ type: 'progress', phase: 3, percent: 30, message: 'Phase 3: Evidence Design 完了 ✓' });
 
                 const surveyDesignSummary = `定量設問:\n${phase3.quantitative.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n定性設問:\n${phase3.qualitative.map((q, i) => `${i + 1}. ${q}`).join('\n')}`;
 
-                // ── Phase 4: Output Generation ──
-                send({ type: 'progress', phase: 4, percent: 78, message: 'Phase 4: Output — レポート・プレスリリースを生成中...' });
+                // ────────────────────────────────────────────
+                // Phase 4: Output Generation (~70% — split into 3 sub-calls)
+                // ────────────────────────────────────────────
 
-                const phase4Prompt = buildPhase4Prompt(
-                    input,
-                    phase1Summary,
-                    socialLanguagesSummary,
-                    surveyDesignSummary,
-                    prompts?.phase4Template,
-                );
-                const phase4 = await generateJSON<OutputGeneration>(phase4Prompt, modelId, systemPrompt);
+                let phase4: OutputGeneration;
 
-                send({ type: 'progress', phase: 4, percent: 100, message: 'Phase 4 完了 ✓' });
+                // If user has a custom Phase 4 template, use it as-is (single call)
+                if (prompts?.phase4Template) {
+                    send({ type: 'progress', phase: 4, percent: 32, message: 'Phase 4: Output — カスタムテンプレートで生成中...' });
+
+                    const phase4Prompt = buildPhase4Prompt(
+                        input, phase1Summary, socialLanguagesSummary, surveyDesignSummary,
+                        prompts.phase4Template,
+                    );
+                    phase4 = await generateJSON<OutputGeneration>(phase4Prompt, modelId, systemPrompt);
+
+                    send({ type: 'progress', phase: 4, percent: 100, message: 'Phase 4: Output 完了 ✓' });
+                } else {
+                    // ── Phase 4a: Report Summary (~25%) ──
+                    send({ type: 'progress', phase: 4, percent: 32, message: 'Phase 4: 調査レポートサマリを生成中...' });
+
+                    const phase4aPrompt = buildPhase4aPrompt(input, phase1Summary, socialLanguagesSummary, surveyDesignSummary);
+                    const phase4a = await generateJSON<{ reportSummary: string }>(phase4aPrompt, modelId, systemPrompt);
+
+                    send({ type: 'progress', phase: 4, percent: 58, message: 'Phase 4: 調査レポートサマリ完了 ✓' });
+
+                    // ── Phase 4b: Press Release (~22%) ──
+                    send({ type: 'progress', phase: 4, percent: 60, message: 'Phase 4: プレスリリース記事を生成中...' });
+
+                    const phase4bPrompt = buildPhase4bPrompt(input, phase1.marketRedefinition, socialLanguagesSummary);
+                    const phase4b = await generateJSON<{ pressRelease: string }>(phase4bPrompt, modelId, systemPrompt);
+
+                    send({ type: 'progress', phase: 4, percent: 82, message: 'Phase 4: プレスリリース完了 ✓' });
+
+                    // ── Phase 4c: Positioning + Headline (~18%) ──
+                    send({ type: 'progress', phase: 4, percent: 84, message: 'Phase 4: ポジショニング提案 & 見出しを生成中...' });
+
+                    const phase4cPrompt = buildPhase4cPrompt(input, socialLanguagesSummary);
+                    const phase4c = await generateJSON<{ positioning: string; newsHeadline: string }>(phase4cPrompt, modelId, systemPrompt);
+
+                    send({ type: 'progress', phase: 4, percent: 100, message: 'Phase 4: 全アウトプット完了 ✓' });
+
+                    phase4 = {
+                        reportSummary: phase4a.reportSummary,
+                        pressRelease: phase4b.pressRelease,
+                        positioning: phase4c.positioning,
+                        newsHeadline: phase4c.newsHeadline,
+                    };
+                }
 
                 // ── Send final result ──
                 send({

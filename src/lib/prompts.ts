@@ -134,6 +134,71 @@ Phase 3（調査設計）:
   "newsHeadline": "ニュース見出し（1行）"
 }`;
 
+// ── Phase 4 Sub-templates (for split execution) ──
+
+export const DEFAULT_PHASE4A_TEMPLATE = `【Phase 4a: 調査レポートサマリ生成】
+
+対象商材: {{productName}}
+カテゴリ: {{category}}
+
+Phase 1（Deep Listening）結果:
+{{phase1Summary}}
+
+Phase 2（社会言語）:
+{{socialLanguages}}
+
+Phase 3（調査設計）:
+{{surveyDesign}}
+
+あなたのタスク:
+調査レポートサマリ（2〜3ページ分のテキスト）を生成してください。
+Phase 3の調査結果を想定して記述。データは仮想だが説得力のある数字を使用。
+
+以下のJSON形式で出力してください:
+{
+  "reportSummary": "レポートサマリ（Markdown形式）"
+}`;
+
+export const DEFAULT_PHASE4B_TEMPLATE = `【Phase 4b: プレスリリース記事生成】
+
+対象商材: {{productName}}
+カテゴリ: {{category}}
+
+市場の再定義:
+{{marketRedefinition}}
+
+社会言語:
+{{socialLanguages}}
+
+あなたのタスク:
+プレスリリース記事を生成してください。
+市場の再定義ニュースとして記事化。「消費者は〇〇を求めているのではない。△△を求めているのだ」のような切り口で。
+
+以下のJSON形式で出力してください:
+{
+  "pressRelease": "プレスリリース記事（Markdown形式）"
+}`;
+
+export const DEFAULT_PHASE4C_TEMPLATE = `【Phase 4c: ポジショニング提案 & ニュース見出し】
+
+対象商材: {{productName}}
+カテゴリ: {{category}}
+
+社会言語:
+{{socialLanguages}}
+
+あなたのタスク:
+以下の2つのアウトプットを生成してください。
+
+1. **ポジショニング提案（結論）**: クライアントへの最終提言。「御社は今後、〇〇ではなく『△△』と名乗るべきである」形式。
+2. **ニュース見出し案**: Yahoo!トピックス風の見出し（1行）
+
+以下のJSON形式で出力してください:
+{
+  "positioning": "ポジショニング提案文",
+  "newsHeadline": "ニュース見出し（1行）"
+}`;
+
 /** Get all default prompts as a single object */
 export function getDefaultPrompts(): CustomPrompts {
   return {
@@ -183,7 +248,7 @@ export function buildPhase3Prompt(input: PrismInput, socialLanguages: string, cu
   });
 }
 
-/** Phase 4: Output Generation */
+/** Phase 4: Output Generation (full — used when custom prompt is set) */
 export function buildPhase4Prompt(
   input: PrismInput,
   phase1Summary: string,
@@ -198,5 +263,47 @@ export function buildPhase4Prompt(
     phase1Summary,
     socialLanguages,
     surveyDesign,
+  });
+}
+
+/** Phase 4a: Report Summary */
+export function buildPhase4aPrompt(
+  input: PrismInput,
+  phase1Summary: string,
+  socialLanguages: string,
+  surveyDesign: string,
+): string {
+  return fillTemplate(DEFAULT_PHASE4A_TEMPLATE, {
+    productName: input.productName,
+    category: input.category,
+    phase1Summary,
+    socialLanguages,
+    surveyDesign,
+  });
+}
+
+/** Phase 4b: Press Release */
+export function buildPhase4bPrompt(
+  input: PrismInput,
+  marketRedefinition: string,
+  socialLanguages: string,
+): string {
+  return fillTemplate(DEFAULT_PHASE4B_TEMPLATE, {
+    productName: input.productName,
+    category: input.category,
+    marketRedefinition,
+    socialLanguages,
+  });
+}
+
+/** Phase 4c: Positioning + News Headline */
+export function buildPhase4cPrompt(
+  input: PrismInput,
+  socialLanguages: string,
+): string {
+  return fillTemplate(DEFAULT_PHASE4C_TEMPLATE, {
+    productName: input.productName,
+    category: input.category,
+    socialLanguages,
   });
 }
