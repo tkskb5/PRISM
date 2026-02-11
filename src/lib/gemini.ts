@@ -3,6 +3,7 @@
 // ============================================================
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { GeminiModel } from './types';
 
 const SYSTEM_PROMPT = `あなたは「社会記号学者 兼 マーケティングストラテジスト」です。
 
@@ -36,10 +37,12 @@ function getClient(): GoogleGenerativeAI {
     return genAI;
 }
 
-export async function generateContent(prompt: string): Promise<string> {
+const DEFAULT_MODEL: GeminiModel = 'gemini-3-flash-preview';
+
+export async function generateContent(prompt: string, modelId: GeminiModel = DEFAULT_MODEL): Promise<string> {
     const client = getClient();
     const model = client.getGenerativeModel({
-        model: 'gemini-2.0-flash',
+        model: modelId,
         systemInstruction: SYSTEM_PROMPT,
     });
 
@@ -48,10 +51,10 @@ export async function generateContent(prompt: string): Promise<string> {
     return response.text();
 }
 
-export async function generateJSON<T>(prompt: string, maxRetries = 2): Promise<T> {
+export async function generateJSON<T>(prompt: string, modelId: GeminiModel = DEFAULT_MODEL, maxRetries = 2): Promise<T> {
     const client = getClient();
     const model = client.getGenerativeModel({
-        model: 'gemini-2.0-flash',
+        model: modelId,
         systemInstruction: SYSTEM_PROMPT,
         generationConfig: {
             responseMimeType: 'application/json',

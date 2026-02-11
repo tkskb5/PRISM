@@ -1,12 +1,135 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type {
     PrismInput,
     PrismResult,
     AnalysisPhase,
 } from '@/lib/types';
 import { generateMarkdownReport } from '@/lib/export';
+
+// ── HTML sanitization ──
+function escapeHtml(text: string): string {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// ── Simple Markdown → HTML converter (with XSS protection) ──
+function markdownToHtml(md: string): string {
+    // Escape HTML entities first to prevent XSS, then apply markdown formatting
+    const escaped = escapeHtml(md);
+    return escaped
+        // Headings
+        .replace(/^### (.+)$/gm, '<h4 style="font-size:14px;font-weight:700;margin:20px 0 8px;color:var(--text-primary)">$1</h4>')
+        .replace(/^## (.+)$/gm, '<h3 style="font-size:16px;font-weight:700;margin:24px 0 10px;color:var(--text-primary)">$1</h3>')
+        .replace(/^# (.+)$/gm, '<h2 style="font-size:18px;font-weight:800;margin:28px 0 12px;color:var(--text-primary)">$1</h2>')
+        // Bold + Italic
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--text-primary)">$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        // Unordered lists
+        .replace(/^[\-\*] (.+)$/gm, '<li style="margin:4px 0;margin-left:20px;list-style:disc">$1</li>')
+        // Ordered lists
+        .replace(/^\d+\. (.+)$/gm, '<li style="margin:4px 0;margin-left:20px;list-style:decimal">$1</li>')
+        // Horizontal rule
+        .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid var(--border-subtle);margin:20px 0">')
+        // Line breaks (double newline → paragraph break)
+        .replace(/\n\n/g, '<br><br>')
+        // Single newline → <br>
+        .replace(/\n/g, '<br>');
+}
+
+// ── Markdown Section with copy buttons ──
+function MarkdownSection({ title, markdown, icon, iconColor }: {
+    title: string;
+    markdown: string;
+    icon: string;
+    iconColor: string;
+}) {
+    const [copiedPlain, setCopiedPlain] = useState(false);
+    const [copiedMd, setCopiedMd] = useState(false);
+
+    const html = useMemo(() => markdownToHtml(markdown), [markdown]);
+
+    // Strip markdown formatting for plain text copy
+    const plainText = useMemo(() => {
+        return markdown
+            .replace(/^#{1,3} /gm, '')
+            .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
+            .replace(/\*\*(.+?)\*\*/g, '$1')
+            .replace(/\*(.+?)\*/g, '$1')
+            .replace(/^[\-\*] /gm, '・')
+            .replace(/^---$/gm, '────────')
+            .trim();
+    }, [markdown]);
+
+    function handleCopyPlain() {
+        navigator.clipboard.writeText(plainText);
+        setCopiedPlain(true);
+        setTimeout(() => setCopiedPlain(false), 2000);
+    }
+
+    function handleCopyMd() {
+        navigator.clipboard.writeText(markdown);
+        setCopiedMd(true);
+        setTimeout(() => setCopiedMd(false), 2000);
+    }
+
+    return (
+        <div style={{ marginBottom: 32 }}>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 16,
+            }}>
+                <h3 style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    margin: 0,
+                }}>
+                    <span style={{ color: iconColor }}>{icon}</span>
+                    {title}
+                </h3>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                        className="copy-btn"
+                        onClick={handleCopyPlain}
+                        style={{ fontSize: 12, padding: '6px 12px' }}
+                    >
+                        {copiedPlain ? '✓ コピー済み' : '📋 テキスト'}
+                    </button>
+                    <button
+                        className="copy-btn"
+                        onClick={handleCopyMd}
+                        style={{ fontSize: 12, padding: '6px 12px' }}
+                    >
+                        {copiedMd ? '✓ コピー済み' : '◇ Markdown'}
+                    </button>
+                </div>
+            </div>
+            <div
+                className="md-content md-rendered"
+                style={{
+                    padding: '24px',
+                    background: 'rgba(10, 10, 30, 0.5)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: 14,
+                    lineHeight: 1.8,
+                    color: 'var(--text-secondary)',
+                }}
+                dangerouslySetInnerHTML={{ __html: html }}
+            />
+        </div>
+    );
+}
 
 const PHASES = [
     { key: 'phase1' as const, label: 'Deep Listening', desc: '生の声を聴取中...' },
@@ -407,52 +530,20 @@ export default function ResultsPage() {
                                 </div>
 
                                 {/* Report Summary */}
-                                <div style={{ marginBottom: 32 }}>
-                                    <h3 style={{
-                                        fontSize: 16,
-                                        fontWeight: 700,
-                                        marginBottom: 16,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 8,
-                                    }}>
-                                        <span style={{ color: 'var(--spectrum-cyan)' }}>◇</span>
-                                        調査レポートサマリ
-                                    </h3>
-                                    <div className="md-content" style={{
-                                        padding: '24px',
-                                        background: 'rgba(10, 10, 30, 0.5)',
-                                        borderRadius: 'var(--radius-md)',
-                                        fontSize: 14,
-                                        whiteSpace: 'pre-wrap',
-                                    }}>
-                                        {result.phase4.reportSummary}
-                                    </div>
-                                </div>
+                                <MarkdownSection
+                                    title="調査レポートサマリ"
+                                    markdown={result.phase4.reportSummary}
+                                    icon="◇"
+                                    iconColor="var(--spectrum-cyan)"
+                                />
 
                                 {/* Press Release */}
-                                <div>
-                                    <h3 style={{
-                                        fontSize: 16,
-                                        fontWeight: 700,
-                                        marginBottom: 16,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 8,
-                                    }}>
-                                        <span style={{ color: 'var(--spectrum-violet)' }}>◇</span>
-                                        プレスリリース記事
-                                    </h3>
-                                    <div className="md-content" style={{
-                                        padding: '24px',
-                                        background: 'rgba(10, 10, 30, 0.5)',
-                                        borderRadius: 'var(--radius-md)',
-                                        fontSize: 14,
-                                        whiteSpace: 'pre-wrap',
-                                    }}>
-                                        {result.phase4.pressRelease}
-                                    </div>
-                                </div>
+                                <MarkdownSection
+                                    title="プレスリリース記事"
+                                    markdown={result.phase4.pressRelease}
+                                    icon="◇"
+                                    iconColor="var(--spectrum-violet)"
+                                />
                             </div>
                         )}
                     </div>

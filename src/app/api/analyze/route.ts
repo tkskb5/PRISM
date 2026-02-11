@@ -3,7 +3,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import { generateJSON, generateContent } from '@/lib/gemini';
+import { generateJSON } from '@/lib/gemini';
 import {
     buildPhase1Prompt,
     buildPhase2Prompt,
@@ -12,12 +12,15 @@ import {
 } from '@/lib/prompts';
 import type {
     PrismInput,
+    GeminiModel,
     DeepListeningResult,
     SocialLanguage,
     SurveyDesign,
     OutputGeneration,
     PrismResult,
 } from '@/lib/types';
+
+const VALID_MODELS: GeminiModel[] = ['gemini-3-flash-preview', 'gemini-3-pro-preview'];
 
 export async function POST(request: Request) {
     try {
@@ -31,15 +34,20 @@ export async function POST(request: Request) {
             );
         }
 
+        // Validate and sanitize model selection
+        const modelId: GeminiModel = VALID_MODELS.includes(input.model as GeminiModel)
+            ? (input.model as GeminiModel)
+            : 'gemini-3-flash-preview';
+
         // ── Phase 1: Deep Listening & Insight ──
         const phase1Prompt = buildPhase1Prompt(input);
-        const phase1 = await generateJSON<DeepListeningResult>(phase1Prompt);
+        const phase1 = await generateJSON<DeepListeningResult>(phase1Prompt, modelId);
 
         const phase1Summary = `ポジティブ・ハック:\n${phase1.positiveHacks.map((h) => `- ${h}`).join('\n')}\n\nネガティブ・ペイン:\n${phase1.negativePains.map((p) => `- ${p}`).join('\n')}\n\n市場の再定義: ${phase1.marketRedefinition}`;
 
         // ── Phase 2: Social Language Development ──
         const phase2Prompt = buildPhase2Prompt(input, phase1Summary);
-        const phase2 = await generateJSON<SocialLanguage[]>(phase2Prompt);
+        const phase2 = await generateJSON<SocialLanguage[]>(phase2Prompt, modelId);
 
         const socialLanguagesSummary = phase2
             .map(
@@ -50,7 +58,7 @@ export async function POST(request: Request) {
 
         // ── Phase 3: Evidence Design ──
         const phase3Prompt = buildPhase3Prompt(input, socialLanguagesSummary);
-        const phase3 = await generateJSON<SurveyDesign>(phase3Prompt);
+        const phase3 = await generateJSON<SurveyDesign>(phase3Prompt, modelId);
 
         const surveyDesignSummary = `定量設問:\n${phase3.quantitative.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n定性設問:\n${phase3.qualitative.map((q, i) => `${i + 1}. ${q}`).join('\n')}`;
 
@@ -61,7 +69,7 @@ export async function POST(request: Request) {
             socialLanguagesSummary,
             surveyDesignSummary
         );
-        const phase4 = await generateJSON<OutputGeneration>(phase4Prompt);
+        const phase4 = await generateJSON<OutputGeneration>(phase4Prompt, modelId);
 
         // ── Assemble Result ──
         const result: PrismResult = {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import type { GeminiModel } from '@/lib/types';
 
 const CATEGORY_EXAMPLES = [
   '100円ショップ', '軽トラ', '生命保険', '事務用品', '中古家電',
@@ -13,6 +14,7 @@ export default function HomePage() {
   const [productName, setProductName] = useState('');
   const [category, setCategory] = useState('');
   const [challenges, setChallenges] = useState('');
+  const [model, setModel] = useState<GeminiModel>('gemini-3-flash-preview');
   const [isLoading, setIsLoading] = useState(false);
 
   const isValid = productName.trim() && category.trim() && challenges.trim();
@@ -24,7 +26,7 @@ export default function HomePage() {
     setIsLoading(true);
 
     // Store input and navigate to results page
-    const input = { productName, category, challenges };
+    const input = { productName, category, challenges, model };
     sessionStorage.setItem('prism-input', JSON.stringify(input));
     router.push('/results');
   }
@@ -204,6 +206,119 @@ export default function HomePage() {
             />
           </div>
 
+          {/* Model Selection */}
+          <div style={{ marginBottom: 32 }}>
+            <label style={{
+              display: 'block',
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              marginBottom: 12,
+            }}>
+              分析エンジン
+            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                {
+                  id: 'gemini-3-flash-preview' as GeminiModel,
+                  name: 'Gemini 3 Flash',
+                  badge: 'おすすめ',
+                  badgeColor: 'var(--spectrum-cyan)',
+                  time: '約40秒',
+                  cost: '約0.5円',
+                  desc: '高速＆高品質。通常の分析に最適',
+                },
+                {
+                  id: 'gemini-3-pro-preview' as GeminiModel,
+                  name: 'Gemini 3 Pro',
+                  badge: '高精度',
+                  badgeColor: 'var(--spectrum-violet)',
+                  time: '約2〜3分',
+                  cost: '約3円',
+                  desc: '最高精度。深い洞察が必要な案件向け',
+                },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setModel(m.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    padding: '14px 18px',
+                    borderRadius: 'var(--radius-md)',
+                    border: model === m.id
+                      ? `1px solid ${m.badgeColor}`
+                      : '1px solid var(--border-subtle)',
+                    background: model === m.id
+                      ? `${m.badgeColor}10`
+                      : 'transparent',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {/* Radio dot */}
+                  <div style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    border: model === m.id
+                      ? `2px solid ${m.badgeColor}`
+                      : '2px solid var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    {model === m.id && (
+                      <div style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: m.badgeColor,
+                      }} />
+                    )}
+                  </div>
+                  {/* Content */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {m.name}
+                      </span>
+                      <span style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        background: `${m.badgeColor}20`,
+                        color: m.badgeColor,
+                        letterSpacing: '0.03em',
+                      }}>
+                        {m.badge}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      {m.desc}
+                    </div>
+                    <div style={{
+                      fontSize: 11,
+                      color: 'var(--text-muted)',
+                      marginTop: 4,
+                      display: 'flex',
+                      gap: 16,
+                    }}>
+                      <span>⏱ {m.time}</span>
+                      <span>💰 {m.cost}/回</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Submit */}
           <button
             id="btn-submit"
@@ -234,6 +349,8 @@ export default function HomePage() {
       }}>
         <p>
           <strong style={{ color: 'var(--text-secondary)' }}>PRISM</strong> — Public Resonance & Insight Synthesis Module
+          <br />
+          <span style={{ fontSize: 11, opacity: 0.7 }}>大衆の共鳴とインサイトの統合モジュール</span>
         </p>
         <p style={{ marginTop: 4 }}>
           プリズムが光を解くように、<br />

@@ -42,8 +42,12 @@ export default function RootLayout({
                 fontSize: '11px',
                 color: 'var(--text-muted)',
                 letterSpacing: '0.05em',
+                display: 'flex',
+                flexDirection: 'column',
+                lineHeight: 1.4,
               }}>
-                Social Language Module
+                <span>Public Resonance & Insight Synthesis Module</span>
+                <span style={{ fontSize: '10px', opacity: 0.7 }}>大衆の共鳴とインサイトの統合モジュール</span>
               </span>
             </div>
             <div style={{
