@@ -3,7 +3,7 @@
 // ============================================================
 
 import { GoogleGenAI } from '@google/genai';
-import type { GeminiModel } from './types';
+import type { GeminiModel, GroundingSource } from './types';
 import { DEFAULT_SYSTEM_PROMPT } from './prompts';
 
 let ai: GoogleGenAI | null = null;
@@ -21,35 +21,10 @@ function getClient(): GoogleGenAI {
 
 const DEFAULT_MODEL: GeminiModel = 'gemini-3-flash-preview';
 
-/** A source reference from Google Search grounding */
-export interface GroundingSource {
-    title: string;
-    url: string;
-}
-
 /** Result from a grounded content generation */
 export interface GroundedResult {
     text: string;
     sources: GroundingSource[];
-}
-
-/**
- * Generate plain text content.
- */
-export async function generateContent(
-    prompt: string,
-    modelId: GeminiModel = DEFAULT_MODEL,
-    systemPrompt: string = DEFAULT_SYSTEM_PROMPT,
-): Promise<string> {
-    const client = getClient();
-    const response = await client.models.generateContent({
-        model: modelId,
-        contents: prompt,
-        config: {
-            systemInstruction: systemPrompt,
-        },
-    });
-    return response.text ?? '';
 }
 
 /**

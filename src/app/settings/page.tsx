@@ -60,8 +60,7 @@ export default function SettingsPage() {
             }
             setModified(diffs);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [defaults]);
 
     const handleChange = useCallback((key: keyof CustomPrompts, value: string) => {
         setPrompts((prev) => ({ ...prev, [key]: value }));
@@ -75,8 +74,7 @@ export default function SettingsPage() {
             return next;
         });
         setSaved(false);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [defaults]);
 
     const handleSave = () => {
         saveCustomPrompts(prompts);
