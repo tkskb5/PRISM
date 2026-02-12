@@ -17,8 +17,8 @@ export interface GroundingSegment {
 /** 利用可能なGeminiモデル */
 export type GeminiModel = 'gemini-3-flash-preview' | 'gemini-3-pro-preview';
 
-/** リサーチ深度 */
-export type ResearchDepth = 'standard' | 'deep' | 'manual' | 'api-deep-research';
+/** リサーチ深度: Test（方向性確認用） / Deep Research（本番品質） */
+export type ResearchDepth = 'standard' | 'api-deep-research';
 
 /** コンサルタントからの入力 */
 export interface PrismInput {
@@ -27,8 +27,6 @@ export interface PrismInput {
     challenges: string;
     model?: GeminiModel;
     researchDepth?: ResearchDepth;
-    /** Manual Deep Research mode: user-pasted research data */
-    manualResearchData?: string;
 }
 
 /** Phase 1: 個別の声（出典URL付き） */
@@ -66,6 +64,15 @@ export interface OutputGeneration {
     newsHeadline: string;
 }
 
+/** Phase 3+4 のイテレーション履歴エントリ */
+export interface IterationEntry {
+    id: string;
+    timestamp: string;
+    selectedLanguages: SocialLanguage[];
+    phase3: SurveyDesign;
+    phase4: OutputGeneration;
+}
+
 /** 全フェーズ統合結果 */
 export interface PrismResult {
     input: PrismInput;
@@ -75,6 +82,10 @@ export interface PrismResult {
     phase4: OutputGeneration;
     /** Phase 1 で使用したGoogle検索の参照元 */
     groundingSources?: GroundingSource[];
+    /** Phase 2 の全候補（6個+追加分） */
+    allSocialLanguages?: SocialLanguage[];
+    /** Phase 3+4 のイテレーション履歴 */
+    iterationHistory?: IterationEntry[];
 }
 
 /** 分析ステータス */
@@ -102,4 +113,11 @@ export interface CustomPrompts {
     phase2Template: string;
     phase3Template: string;
     phase4Template: string;
+}
+
+// ── Utility Functions ──
+
+/** Backward compat: handle both string (legacy) and VoiceItem */
+export function toVoiceItem(v: string | VoiceItem): VoiceItem {
+    return typeof v === 'string' ? { text: v } : v;
 }

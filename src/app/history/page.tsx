@@ -3,13 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type { HistoryEntry, VoiceItem } from '@/lib/types';
+import { toVoiceItem } from '@/lib/types';
 import { getHistory, deleteHistoryEntry, clearHistory } from '@/lib/storage';
 import { linkBtnStyle, dangerBtnStyle, sectionStyle, sectionTitleStyle } from '@/lib/styles';
-
-/** Backward compat: handle both string (legacy) and VoiceItem */
-function toVoiceItem(v: string | VoiceItem): VoiceItem {
-    return typeof v === 'string' ? { text: v } : v;
-}
 
 const subHeadStyle: React.CSSProperties = {
     fontSize: 13,

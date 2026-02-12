@@ -2,7 +2,7 @@
 // PRISM — Analysis API Route (SSE Streaming)
 // ============================================================
 
-import { generateJSON, multiGroundedResearch, deepResearchContent, fetchActualTitles, interactionsDeepResearch } from '@/lib/gemini';
+import { generateJSON, multiGroundedResearch, fetchActualTitles, interactionsDeepResearch } from '@/lib/gemini';
 import {
     buildPhase1Prompt,
     buildPhase2Prompt,
@@ -12,8 +12,6 @@ import {
     buildPhase4bPrompt,
     buildPhase4cPrompt,
     buildMultiGroundingPrompts,
-    buildDeepResearchPhase1Prompt,
-    buildManualPhase1Prompt,
     buildApiDeepResearchPrompt,
     buildApiDeepResearchPhase1Prompt,
     DEFAULT_SYSTEM_PROMPT,
@@ -79,8 +77,8 @@ export async function POST(request: Request) {
     const modelId: GeminiModel = VALID_MODELS.includes(input.model as GeminiModel)
         ? (input.model as GeminiModel)
         : 'gemini-3-flash-preview';
-    const researchDepth: ResearchDepth = (['deep', 'manual', 'api-deep-research'] as ResearchDepth[]).includes(input.researchDepth as ResearchDepth)
-        ? (input.researchDepth as ResearchDepth)
+    const researchDepth: ResearchDepth = input.researchDepth === 'api-deep-research'
+        ? 'api-deep-research'
         : 'standard';
 
     const systemPrompt = prompts?.systemPrompt || DEFAULT_SYSTEM_PROMPT;
@@ -102,25 +100,17 @@ export async function POST(request: Request) {
                 debugLog('⏱ 分析開始', { モード: researchDepth, モデル: modelId, 開始時刻: new Date().toLocaleTimeString('ja-JP') });
 
                 // Mode-specific progress milestones based on actual timing data
-                // API Deep Research (673s): P1=80%, P2=6%, P3=3%, P4=11%
-                // Standard       (~120s):  P1=50%, P2=15%, P3=10%, P4=25%
-                // Deep Research  (~180s):  P1=60%, P2=12%, P3=8%,  P4=20%
-                // Manual          (~60s):  P1=20%, P2=25%, P3=15%, P4=40%
+                // API Deep Research (~600s): P1=80%, P2=6%, P3=3%, P4=11%
+                // Test (Standard)   (~60s):  P1=50%, P2=15%, P3=10%, P4=25%
                 const pct = researchDepth === 'api-deep-research'
                     ? { p1Start: 1, p1Mid: 40, p1Struct: 70, p1Done: 80, p2Start: 81, p2Done: 86, p3Start: 87, p3Done: 89, p4Start: 90, p4a: 93, p4b: 96, p4c: 98 }
-                    : researchDepth === 'deep'
-                        ? { p1Start: 2, p1Mid: 20, p1Struct: 45, p1Done: 60, p2Start: 61, p2Done: 72, p3Start: 73, p3Done: 80, p4Start: 81, p4a: 87, p4b: 93, p4c: 97 }
-                        : researchDepth === 'manual'
-                            ? { p1Start: 5, p1Mid: 10, p1Struct: 15, p1Done: 20, p2Start: 21, p2Done: 45, p3Start: 46, p3Done: 60, p4Start: 61, p4a: 75, p4b: 88, p4c: 95 }
-                            : /* standard */
-                            { p1Start: 2, p1Mid: 15, p1Struct: 35, p1Done: 50, p2Start: 51, p2Done: 65, p3Start: 66, p3Done: 75, p4Start: 76, p4a: 84, p4b: 92, p4c: 97 };
+                    : /* standard (Test) */
+                    { p1Start: 2, p1Mid: 15, p1Struct: 35, p1Done: 50, p2Start: 51, p2Done: 65, p3Start: 66, p3Done: 75, p4Start: 76, p4a: 84, p4b: 92, p4c: 97 };
 
                 // ────────────────────────────────────────────
                 // Phase 1: Deep Listening & Insight
-                //   Standard: multi-angle grounding + JSON structuring
-                //   Deep Research: grounding + URL Context for full page reading
-                //   Manual: user-pasted external research data
-                //   API Deep Research: Interactions API agent
+                //   Test (Standard): multi-angle grounding + JSON structuring
+                //   Deep Research: Interactions API agent
                 // ────────────────────────────────────────────
                 let phase1: DeepListeningResult;
                 let groundingSources: { title: string; url: string }[] = [];
@@ -158,48 +148,6 @@ export async function POST(request: Request) {
                         + `\n\n【Deep Research Agent によるリサーチ結果】\n${deepResult.reportText}`;
                     phase1 = await generateJSON<DeepListeningResult>(phase1Prompt, modelId, systemPrompt);
 
-                } else if (researchDepth === 'manual') {
-                    // ── Manual Deep Research Mode ──
-                    send({ type: 'progress', phase: 1, percent: pct.p1Start, message: 'Phase 1 [Manual]: 外部リサーチデータを分析中...' });
-
-                    const manualData = input.manualResearchData || '';
-                    const manualPrompt = buildManualPhase1Prompt(input, prompts?.phase1Template)
-                        + `\n\n【外部Deep Researchの結果（ユーザー提供データ）】\n${manualData}`;
-
-                    send({ type: 'progress', phase: 1, percent: pct.p1Mid, message: 'Phase 1 [Manual]: リサーチ結果からDeep Listeningを構造化中...' });
-                    phase1 = await generateJSON<DeepListeningResult>(manualPrompt, modelId, systemPrompt);
-
-                } else if (researchDepth === 'deep') {
-                    // ── Deep Research Mode ──
-                    send({ type: 'progress', phase: 1, percent: pct.p1Start, message: 'Phase 1 [Deep]: 5角度のGoogle検索でソースを探索中...' });
-
-                    const groundingPrompts = buildMultiGroundingPrompts(input);
-                    const analysisPrompt = buildDeepResearchPhase1Prompt(input, prompts?.phase1Template);
-
-                    const deepResult = await deepResearchContent(
-                        groundingPrompts,
-                        analysisPrompt,
-                        modelId,
-                        systemPrompt,
-                        (msg) => send({ type: 'progress', phase: 1, percent: pct.p1Mid, message: `Phase 1 [Deep]: ${msg}` }),
-                    );
-
-                    groundingSources = deepResult.allSources;
-                    send({ type: 'progress', phase: 1, percent: pct.p1Struct, message: `Phase 1 [Deep]: ${groundingSources.length}件のソースからJSON構造化中...` });
-
-                    // deepResearchContent already returns JSON-formatted text via responseMimeType
-                    try {
-                        phase1 = JSON.parse(deepResult.combinedText);
-                    } catch {
-                        // Fallback: if URL Context response isn't valid JSON, re-generate
-                        const sourceRefList = groundingSources
-                            .map((src, i) => `[${i + 1}] ${src.title} — ${src.url}`)
-                            .join('\n');
-                        const fallbackPrompt = buildDeepResearchPhase1Prompt(input)
-                            + `\n\n【Webページ分析結果】\n${deepResult.combinedText}`
-                            + `\n\n【出典URLリスト】\n${sourceRefList}`;
-                        phase1 = await generateJSON<DeepListeningResult>(fallbackPrompt, modelId, systemPrompt);
-                    }
                 } else {
                     // ── Standard Mode ──
                     send({ type: 'progress', phase: 1, percent: pct.p1Start, message: 'Phase 1: 5つの角度からGoogle検索で生活者のリアルな声を調査中...' });
@@ -303,6 +251,16 @@ export async function POST(request: Request) {
                     return result;
                 };
 
+                // Guard: LLM may return malformed JSON without expected arrays
+                if (!Array.isArray(phase1.positiveHacks)) {
+                    console.warn('[Route] phase1.positiveHacks is not an array, falling back to empty');
+                    phase1.positiveHacks = [];
+                }
+                if (!Array.isArray(phase1.negativePains)) {
+                    console.warn('[Route] phase1.negativePains is not an array, falling back to empty');
+                    phase1.negativePains = [];
+                }
+
                 phase1 = {
                     ...phase1,
                     positiveHacks: validateUrls(correctTitles(phase1.positiveHacks)),
@@ -318,7 +276,7 @@ export async function POST(request: Request) {
                     有効URL数: validUrls.size,
                 });
 
-                send({ type: 'progress', phase: 1, percent: pct.p1Done, message: `Phase 1: Deep Listening 完了 ✓${researchDepth === 'deep' ? ' [Deep Research]' : ''}` });
+                send({ type: 'progress', phase: 1, percent: pct.p1Done, message: `Phase 1: Deep Listening 完了 ✓${researchDepth === 'api-deep-research' ? ' [Deep Research]' : ''}` });
                 phaseTimings['Phase 1 (Deep Listening)'] = Math.round((Date.now() - phaseStartTime) / 1000);
                 debugLog('⏱ Phase 1 完了', `${phaseTimings['Phase 1 (Deep Listening)']} 秒`);
                 phaseStartTime = Date.now();
@@ -329,16 +287,18 @@ export async function POST(request: Request) {
                 // ────────────────────────────────────────────
                 // Phase 2: Social Language Development (~8%)
                 // ────────────────────────────────────────────
-                send({ type: 'progress', phase: 2, percent: pct.p2Start, message: 'Phase 2: Social Language — 社会言語を開発中...' });
+                send({ type: 'progress', phase: 2, percent: pct.p2Start, message: 'Phase 2: Social Language — 6つの社会言語候補を開発中...' });
 
                 const phase2Prompt = buildPhase2Prompt(input, phase1Summary, prompts?.phase2Template);
-                const phase2 = await generateJSON<SocialLanguage[]>(phase2Prompt, modelId, systemPrompt);
+                const allSocialLanguages = await generateJSON<SocialLanguage[]>(phase2Prompt, modelId, systemPrompt);
+                // Use first 3 as the default selection for Phase 3+4
+                const phase2 = allSocialLanguages.slice(0, 3);
 
-                send({ type: 'progress', phase: 2, percent: pct.p2Done, message: 'Phase 2: Social Language 完了 ✓' });
+                send({ type: 'progress', phase: 2, percent: pct.p2Done, message: `Phase 2: Social Language 完了 ✓ (${allSocialLanguages.length}候補)` });
                 phaseTimings['Phase 2 (Social Language)'] = Math.round((Date.now() - phaseStartTime) / 1000);
-                debugLog('⏱ Phase 2 完了', `${phaseTimings['Phase 2 (Social Language)']} 秒`);
+                debugLog('⏱ Phase 2 完了', `${phaseTimings['Phase 2 (Social Language)']} 秒 — ${allSocialLanguages.length}候補生成`);
                 phaseStartTime = Date.now();
-                send({ type: 'phase_result', phase: 2, data: phase2 });
+                send({ type: 'phase_result', phase: 2, data: phase2, allCandidates: allSocialLanguages });
 
                 const socialLanguagesSummary = phase2
                     .map((sl, i) => `${i + 1}. ${sl.keyword}\n   ストーリー: ${sl.story}\n   ファクト: ${sl.fact}`)
@@ -430,6 +390,7 @@ export async function POST(request: Request) {
                         phase3,
                         phase4,
                         groundingSources,
+                        allSocialLanguages,
                     },
                 });
             } catch (error) {

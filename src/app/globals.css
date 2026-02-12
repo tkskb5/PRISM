@@ -237,7 +237,7 @@ body::before {
 
 textarea.prism-input {
   resize: vertical;
-  min-height: 120px;
+  min-height: 180px;
 }
 
 /* ── Tab Styles ──────────────────────────────── */
