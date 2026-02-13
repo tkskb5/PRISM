@@ -1,63 +1,129 @@
 // ============================================================
-// PRISM — localStorage Storage Utilities
+// PRISM — Supabase Storage Utilities
 // ============================================================
 
+import { supabase } from './supabase';
 import type { HistoryEntry, PrismInput, PrismResult, CustomPrompts } from './types';
 
-const HISTORY_KEY = 'prism-history';
-const PROMPTS_KEY = 'prism-prompts';
 const MAX_HISTORY = 50;
 
 // ── History ──
 
-export function getHistory(): HistoryEntry[] {
-    if (typeof window === 'undefined') return [];
-    try {
-        const raw = localStorage.getItem(HISTORY_KEY);
-        return raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
-    } catch {
+export async function getHistory(): Promise<HistoryEntry[]> {
+    const { data, error } = await supabase
+        .from('prism_history')
+        .select('id, created_at, input, result')
+        .order('created_at', { ascending: false })
+        .limit(MAX_HISTORY);
+
+    if (error) {
+        console.error('[PRISM Storage] getHistory error:', error.message);
         return [];
+    }
+
+    return (data ?? []).map((row) => ({
+        id: row.id,
+        timestamp: row.created_at,
+        input: row.input as PrismInput,
+        result: row.result as PrismResult,
+    }));
+}
+
+export async function saveHistory(input: PrismInput, result: PrismResult): Promise<void> {
+    const { error } = await supabase
+        .from('prism_history')
+        .insert({ input, result });
+
+    if (error) {
+        console.error('[PRISM Storage] saveHistory error:', error.message);
     }
 }
 
-export function saveHistory(input: PrismInput, result: PrismResult): void {
-    const entry: HistoryEntry = {
-        id: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        input,
-        result,
-    };
-    const history = getHistory();
-    history.unshift(entry); // newest first
-    if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+export async function deleteHistoryEntry(id: string): Promise<void> {
+    const { error } = await supabase
+        .from('prism_history')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        console.error('[PRISM Storage] deleteHistoryEntry error:', error.message);
+    }
 }
 
-export function deleteHistoryEntry(id: string): void {
-    const history = getHistory().filter((e) => e.id !== id);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-}
+export async function clearHistory(): Promise<void> {
+    const { error } = await supabase
+        .from('prism_history')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // delete all rows
 
-export function clearHistory(): void {
-    localStorage.removeItem(HISTORY_KEY);
+    if (error) {
+        console.error('[PRISM Storage] clearHistory error:', error.message);
+    }
 }
 
 // ── Custom Prompts ──
 
-export function getCustomPrompts(): CustomPrompts | null {
-    if (typeof window === 'undefined') return null;
-    try {
-        const raw = localStorage.getItem(PROMPTS_KEY);
-        return raw ? (JSON.parse(raw) as CustomPrompts) : null;
-    } catch {
+export async function getCustomPrompts(): Promise<CustomPrompts | null> {
+    const { data, error } = await supabase
+        .from('prism_custom_prompts')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+    if (error) {
+        console.error('[PRISM Storage] getCustomPrompts error:', error.message);
         return null;
+    }
+
+    if (!data) return null;
+
+    return {
+        systemPrompt: data.system_prompt,
+        phase1Template: data.phase1_template,
+        phase2Template: data.phase2_template,
+        phase3Template: data.phase3_template,
+        phase4Template: data.phase4_template,
+    };
+}
+
+export async function saveCustomPrompts(prompts: CustomPrompts): Promise<void> {
+    // 既存レコードがあるか確認
+    const { data: existing } = await supabase
+        .from('prism_custom_prompts')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+
+    const row = {
+        system_prompt: prompts.systemPrompt,
+        phase1_template: prompts.phase1Template,
+        phase2_template: prompts.phase2Template,
+        phase3_template: prompts.phase3Template,
+        phase4_template: prompts.phase4Template,
+        updated_at: new Date().toISOString(),
+    };
+
+    if (existing?.id) {
+        const { error } = await supabase
+            .from('prism_custom_prompts')
+            .update(row)
+            .eq('id', existing.id);
+        if (error) console.error('[PRISM Storage] saveCustomPrompts update error:', error.message);
+    } else {
+        const { error } = await supabase
+            .from('prism_custom_prompts')
+            .insert(row);
+        if (error) console.error('[PRISM Storage] saveCustomPrompts insert error:', error.message);
     }
 }
 
-export function saveCustomPrompts(prompts: CustomPrompts): void {
-    localStorage.setItem(PROMPTS_KEY, JSON.stringify(prompts));
-}
+export async function resetCustomPrompts(): Promise<void> {
+    const { error } = await supabase
+        .from('prism_custom_prompts')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // delete all rows
 
-export function resetCustomPrompts(): void {
-    localStorage.removeItem(PROMPTS_KEY);
+    if (error) {
+        console.error('[PRISM Storage] resetCustomPrompts error:', error.message);
+    }
 }

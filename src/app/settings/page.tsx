@@ -48,18 +48,18 @@ export default function SettingsPage() {
     const [modified, setModified] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        const custom = getCustomPrompts();
-        if (custom) {
-            setPrompts(custom);
-            // Detect which prompts differ from defaults
-            const diffs = new Set<string>();
-            for (const section of PROMPT_SECTIONS) {
-                if (custom[section.key] !== defaults[section.key]) {
-                    diffs.add(section.key);
+        getCustomPrompts().then((custom) => {
+            if (custom) {
+                setPrompts(custom);
+                const diffs = new Set<string>();
+                for (const section of PROMPT_SECTIONS) {
+                    if (custom[section.key] !== defaults[section.key]) {
+                        diffs.add(section.key);
+                    }
                 }
+                setModified(diffs);
             }
-            setModified(diffs);
-        }
+        });
     }, [defaults]);
 
     const handleChange = useCallback((key: keyof CustomPrompts, value: string) => {
@@ -76,13 +76,13 @@ export default function SettingsPage() {
         setSaved(false);
     }, [defaults]);
 
-    const handleSave = () => {
-        saveCustomPrompts(prompts);
+    const handleSave = async () => {
+        await saveCustomPrompts(prompts);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
     };
 
-    const handleResetOne = (key: keyof CustomPrompts) => {
+    const handleResetOne = async (key: keyof CustomPrompts) => {
         if (!confirm('このプロンプトを初期値に戻しますか？')) return;
         const newPrompts = { ...prompts, [key]: defaults[key] };
         setPrompts(newPrompts);
@@ -91,12 +91,12 @@ export default function SettingsPage() {
             next.delete(key);
             return next;
         });
-        saveCustomPrompts(newPrompts);
+        await saveCustomPrompts(newPrompts);
     };
 
-    const handleResetAll = () => {
+    const handleResetAll = async () => {
         if (!confirm('すべてのプロンプトを初期値に戻しますか？')) return;
-        resetCustomPrompts();
+        await resetCustomPrompts();
         setPrompts(defaults);
         setModified(new Set());
     };
@@ -110,7 +110,7 @@ export default function SettingsPage() {
                         ⚙️ プロンプト設定
                     </h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>
-                        各工程で使われるプロンプトを確認・編集できます（ブラウザに保存）
+                        各工程で使われるプロンプトを確認・編集できます（データベースに保存）
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>

@@ -203,7 +203,7 @@ export default function ResultsPage() {
         setDebugLogs([]);
 
         try {
-            const customPrompts = getCustomPrompts();
+            const customPrompts = await getCustomPrompts();
 
             const res = await fetch('/api/analyze', {
                 method: 'POST',
@@ -278,7 +278,7 @@ export default function ResultsPage() {
                             setResult(data);
                             setPhase('complete');
                             setPercent(100);
-                            saveHistory(inputData, data);
+                            await saveHistory(inputData, data);
                         } else if (event.type === 'error') {
                             throw new Error(event.error);
                         } else if (event.type === 'debug_log') {
@@ -368,7 +368,7 @@ export default function ResultsPage() {
         if (!input || !phase1Summary) return;
         setIsAddingLanguages(true);
         try {
-            const customPrompts = getCustomPrompts();
+            const customPrompts = await getCustomPrompts();
             const res = await fetch('/api/regenerate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -408,7 +408,7 @@ export default function ResultsPage() {
         setRegenerateMsg('Phase 3+4 を再生成中...');
 
         try {
-            const customPrompts = getCustomPrompts();
+            const customPrompts = await getCustomPrompts();
             const res = await fetch('/api/regenerate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -470,7 +470,7 @@ export default function ResultsPage() {
                                     iterationHistory: [...iterationHistory, entry],
                                 };
                                 setResult(updated);
-                                saveHistory(input, updated);
+                                await saveHistory(input, updated);
                             }
                         } else if (event.type === 'error') {
                             throw new Error(event.error);

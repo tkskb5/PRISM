@@ -38,17 +38,17 @@ export default function HistoryPage() {
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
     useEffect(() => {
-        setEntries(getHistory());
+        getHistory().then(setEntries);
     }, []);
 
-    const handleDelete = (id: string) => {
-        deleteHistoryEntry(id);
+    const handleDelete = async (id: string) => {
+        await deleteHistoryEntry(id);
         setEntries((prev) => prev.filter((e) => e.id !== id));
     };
 
-    const handleClearAll = () => {
+    const handleClearAll = async () => {
         if (!confirm('すべての実行履歴を削除しますか？')) return;
-        clearHistory();
+        await clearHistory();
         setEntries([]);
     };
 
@@ -69,7 +69,7 @@ export default function HistoryPage() {
                         📋 実行履歴
                     </h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>
-                        過去の分析結果を確認できます（最大50件・ブラウザに保存）
+                        過去の分析結果を確認できます（最大50件・データベースに保存）
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
